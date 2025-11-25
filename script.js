@@ -899,6 +899,51 @@ function listenToActiveMatch() {
     });
 }
 
+// *** NOWA FUNKCJA DO NASŁUCHIWANIA TWOICH KUPONÓW ***
+function listenToActiveBets(userId) {
+    if (unsubscribeActiveBets) unsubscribeActiveBets();
+    const q = query(collection(db, "active_bets"), where("userId", "==", userId), orderBy("createdAt", "desc"));
+    unsubscribeActiveBets = onSnapshot(q, (snap) => {
+        dom.activeBetsFeed.innerHTML = "";
+        if (snap.empty) {
+            dom.activeBetsFeed.innerHTML = "<p>Brak aktywnych zakładów.</p>";
+            return;
+        }
+        snap.forEach(d => {
+            const bet = d.data();
+            let statusColor = "var(--text-muted)";
+            let statusText = "W TOKU";
+            let profitInfo = "";
+
+            if (bet.status === 'won') {
+                statusColor = "var(--green)";
+                statusText = "WYGRANA";
+                profitInfo = ` | <span style="color:var(--green)">+${formatujWalute(bet.betAmount * bet.odds)}</span>`;
+            } else if (bet.status === 'lost') {
+                statusColor = "var(--red)";
+                statusText = "PRZEGRANA";
+            }
+            const matchName = bet.matchTitle || "Zakład Sportowy";
+            const teamName = bet.betOn === 'draw' ? 'Remis (X)' : (bet.betOn === 'teamA' ? 'Gospodarz (1)' : 'Gość (2)');
+
+            const html = `
+                <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed rgba(255,255,255,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: bold; font-size: 0.9em; color: var(--accent-color);">${matchName}</span>
+                        <span style="color: ${statusColor}; font-weight: 800; font-size: 0.8em;">${statusText}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85em; color: #ccc; margin-top: 4px;">
+                        <span>Twój typ: <strong>${teamName}</strong> (@${bet.odds.toFixed(2)})</span>
+                    </div>
+                    <div style="text-align: right; font-size: 0.85em; margin-top: 2px;">
+                        Stawka: ${formatujWalute(bet.betAmount)}${profitInfo}
+                    </div>
+                </div>`;
+            dom.activeBetsFeed.insertAdjacentHTML('beforeend', html);
+        });
+    });
+}
+
 function renderBettingPanel() {
     dom.matchInfo.innerHTML = "";
     dom.bettingForm.classList.add("hidden");
@@ -1006,13 +1051,17 @@ function renderBettingPanel() {
 
 // Funkcja globalna (na window) do obsługi kliknięcia w tabeli
 window.selectBet = function(id, team, odds, label) {
-    currentBetSelection = { id, team, odds };
+    // *** POPRAWKA: ZAPAMIĘTUJEMY TYTUŁ MECZU ***
+    currentBetSelection = { id, team, odds, matchTitle: label };
     
     // Pokazujemy formularz
     dom.bettingForm.classList.remove("hidden");
     
+    // Wyciągamy samą nazwę meczu z labela (usuwamy nawiasy [1] itp.)
+    const cleanLabel = label.split('[')[0].trim();
+    
     // Aktualizujemy tekst przycisku
-    dom.placeBetButton.textContent = `Postaw na: ${label} (Kurs: ${odds.toFixed(2)})`;
+    dom.placeBetButton.textContent = `Postaw na: ${cleanLabel} (Kurs: ${odds.toFixed(2)})`;
     dom.placeBetButton.style.background = "var(--green)";
     dom.placeBetButton.style.color = "#000";
     
@@ -1045,12 +1094,13 @@ async function onPlaceBet(e) {
             
             transaction.update(userRef, { cash: newCash, totalValue: newVal });
             
-            // Utworzenie zakładu
+            // Utworzenie zakładu (DODANO MATCH TITLE)
             const betRef = doc(collection(db, "active_bets"));
             transaction.set(betRef, {
                 userId: currentUserId,
                 userName: portfolio.name,
                 matchId: currentBetSelection.id,
+                matchTitle: currentBetSelection.matchTitle, // Zapisujemy nazwę meczu!
                 betOn: currentBetSelection.team, // 'teamA', 'teamB' lub 'draw'
                 odds: currentBetSelection.odds,
                 betAmount: amount,
