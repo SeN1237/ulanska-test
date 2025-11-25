@@ -269,16 +269,31 @@
                 <div class="games-column">
                     
                     <section id="betting-panel" class="glass-panel">
-                        <div class="panel-head">
-                            <h2><i class="fa-solid fa-futbol"></i> Bukmacherka</h2>
-                        </div>
-                        <div id="match-info"></div>
-                        <form id="betting-form" class="hidden mt-10">
-                            <input type="number" id="bet-amount" placeholder="Stawka" class="full-input">
-                            <button type="submit" id="place-bet-button" class="btn-accent mt-5">Postaw Zakład</button>
-                        </form>
-                        <div id="active-bets-feed" class="feed-box history-feed mt-10"></div>
-                    </section>
+    <div class="panel-head">
+        <h2><i class="fa-solid fa-futbol"></i> Bukmacherka</h2>
+    </div>
+    
+    <div id="match-info">
+        <p>Ładowanie oferty...</p>
+    </div>
+
+    <form id="betting-form" class="hidden mt-10" style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">
+        <h4 style="margin: 0 0 10px 0; color: var(--accent-color);">Twoj typ:</h4>
+        
+        <select id="bet-team" style="display: none;"></select>
+        
+        <label for="bet-amount" style="display:block; margin-bottom:5px;">Stawka (zł):</label>
+        <input type="number" id="bet-amount" placeholder="np. 100" min="1" step="0.01" class="full-input" style="width: 100%; margin-bottom: 10px;">
+        
+        <button type="submit" id="place-bet-button" class="btn-accent" style="width: 100%;">Zatwierdź Zakład</button>
+    </form>
+
+    <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+    <h3>Twoje Aktywne Kupony</h3>
+    <div id="active-bets-feed" class="feed-box history-feed mt-10">
+        <p>...brak aktywnych zakładów...</p>
+    </div>
+</section>
 
                     <section id="casino-panel" class="glass-panel center-content">
                         <h2><i class="fa-solid fa-dharmachakra"></i> Ruletka</h2>
