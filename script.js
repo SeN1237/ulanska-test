@@ -1,4 +1,4 @@
-// --- IMPORTY ---
+// --- IMPORTY FIREBASE ---
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
 import { 
     getAuth, onAuthStateChanged, createUserWithEmailAndPassword, 
@@ -7,9 +7,10 @@ import {
 import { 
     getFirestore, doc, setDoc, onSnapshot, updateDoc, 
     collection, addDoc, query, orderBy, limit, serverTimestamp, 
-    runTransaction, increment, getDoc 
+    runTransaction, increment, getDoc, where 
 } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
+// --- KONFIGURACJA ---
 const firebaseConfig = {
   apiKey: "AIzaSyCeu3hDfVKNirhJHk1HbqaFjtf_L3v3sd0",
   authDomain: "symulator-gielda.firebaseapp.com",
@@ -25,6 +26,7 @@ const auth = getAuth(app);
 // WYMUSZENIE LONG POLLING (NAPRAWA BŁĘDU QUIC)
 const db = getFirestore(app, { experimentalForceLongPolling: true });
 
+// --- ZMIENNE GLOBALNE ---
 let currentUserId = null;
 let currentCompanyId = "ulanska";
 let chartInstance = null;
@@ -212,7 +214,7 @@ function initChart() {
         series: [{ data: [] }],
         chart: { 
             type: 'candlestick', 
-            height: 400, // Wymuszona wysokość
+            height: 400, 
             width: '100%',
             background: 'transparent', 
             toolbar: {show:false}, 
@@ -274,7 +276,7 @@ function updateUI() {
     
     if(dom["username"]) dom["username"].innerHTML = `${portfolio.name} ${'⭐️'.repeat(portfolio.prestigeLevel)}`;
     
-    // TICKER (Poprawiony)
+    // TICKER
     let tickerHtml = "";
     COMPANY_ORDER.forEach(cid => {
         const p = market[cid].price;
@@ -389,7 +391,6 @@ function listenToHistory() {
         let globalH = ""; let myH = "";
         snap.forEach(d => {
             const h = d.data();
-            // STYL HISTORII
             const actionClass = h.type.includes("KUPNO") ? "h-action-buy" : "h-action-sell";
             const el = `<p><span class="${actionClass}">${h.type}</span> ${h.companyName} - <strong>${h.userName}</strong> (${formatCurrency(h.totalValue)})</p>`;
             globalH += el;
@@ -413,7 +414,6 @@ function listenToRanking() {
 }
 
 function listenToBets(uid) {
-    // Nasłuch aktywnych zakładów
     if(dom["active-bets-feed"]) {
         onSnapshot(query(collection(db, "active_bets"), where("userId", "==", uid), limit(5)), (snap) => {
             dom["active-bets-feed"].innerHTML = "";
@@ -425,13 +425,12 @@ function listenToBets(uid) {
         });
     }
     
-    // Nasłuch meczów (Globalny) - Naprawa ładowania
     onSnapshot(doc(db, "global", "zaklady"), (docSnap) => {
         const info = document.getElementById("match-info");
         if(docSnap.exists() && info) {
             const matches = docSnap.data().mecze || [];
             if(matches.length > 0) {
-                const m = matches[0]; // Pokaż pierwszy
+                const m = matches[0];
                 info.innerHTML = `<p><strong>${m.teamA}</strong> vs <strong>${m.teamB}</strong></p>`;
             } else {
                 info.innerHTML = "<p>Brak meczów dzisiaj.</p>";
