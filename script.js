@@ -1231,6 +1231,7 @@ window.selectBetType = function(type, value) {
 };
 
 // --- RULETKA (Zaktualizowana do wersji animowanej) ---
+// --- RULETKA (Zaktualizowana do wersji animowanej) ---
 window.commitSpin = async function() {
     if (isSpinning) return;
     if (!currentUserId) return showMessage("Zaloguj się!", "error");
@@ -1248,7 +1249,7 @@ window.commitSpin = async function() {
     allBtns.forEach(b => b.disabled = true);
     if(dom.amountInput) dom.amountInput.disabled = true;
 
-    // Reset widoku koła
+    // Reset widoku koła - usuwamy stare atrybuty, aby animacja mogła ruszyć od nowa
     const innerRing = document.querySelector('.inner');
     const dataContainer = document.querySelector('.data');
     const resultNumberEl = document.querySelector('.result-number');
@@ -1262,58 +1263,48 @@ window.commitSpin = async function() {
     // --- 1. LOSOWANIE WYNIKU (0-36) ---
     const winningNumber = Math.floor(Math.random() * 37);
     
-    // Sprawdzenie koloru wyniku
     const redNumbers = [32, 19, 21, 25, 34, 27, 36, 30, 23, 5, 16, 1, 14, 9, 18, 7, 12, 3];
     let resultColor = 'black';
     if (winningNumber === 0) resultColor = 'green';
     else if (redNumbers.includes(winningNumber)) resultColor = 'red';
 
-    // --- 2. ANIMACJA ---
-    // Małe opóźnienie żeby CSS załapał reset
+    // --- 2. START ANIMACJI ---
+    // Małe opóźnienie (50ms), aby przeglądarka zarejestrowała reset stylu przed nałożeniem nowego
     setTimeout(() => {
         innerRing.setAttribute('data-spinto', winningNumber);
     }, 50);
 
-    const spinDuration = 6000; // 6 sekund animacji (zgodne z CSS)
+    const spinDuration = 6000; // Czas trwania animacji w ms (zgodny z CSS: 6s)
 
     try {
         // Czekamy na koniec kręcenia
         await new Promise(r => setTimeout(r, spinDuration));
 
-        // Efekt końcowy
+        // Efekt końcowy - zatrzymanie i pokazanie wyniku
         innerRing.classList.add('rest');
         resultNumberEl.textContent = winningNumber;
         resultColorEl.textContent = resultColor === 'red' ? 'CZERWONE' : (resultColor === 'black' ? 'CZARNE' : 'ZIELONE');
         resultBg.style.backgroundColor = resultColor === 'red' ? 'var(--red)' : (resultColor === 'green' ? 'var(--green)' : '#111');
         dataContainer.classList.add('reveal');
 
-        // Dodanie do historii
+        // Dodanie do historii wyników
         const historyList = document.getElementById('previous-list');
-        const li = document.createElement('li');
-        li.className = `previous-result color-${resultColor}`;
-        li.textContent = winningNumber;
         if(historyList) {
+            const li = document.createElement('li');
+            li.className = `previous-result color-${resultColor}`;
+            li.textContent = winningNumber;
             historyList.prepend(li);
             if(historyList.children.length > 12) historyList.lastChild.remove();
         }
 
-        // --- 3. WERYFIKACJA WYGRANEJ ---
+        // --- 3. WERYFIKACJA WYGRANEJ I TRANSAKCJA FIREBASE ---
         let multiplier = 0;
-        
-        if (currentSelection.type === 'color') {
-            // Zakład na kolor
-            if (currentSelection.value === resultColor) {
-                if (resultColor === 'green') multiplier = 36; // Bonus za trafienie zera kolorem
-                else multiplier = 2;
-            }
-        } else if (currentSelection.type === 'number') {
-            // Zakład na liczbę
-            if (parseInt(currentSelection.value) === winningNumber) {
-                multiplier = 36; 
-            }
+        if (currentSelection.type === 'color' && currentSelection.value === resultColor) {
+            multiplier = resultColor === 'green' ? 36 : 2;
+        } else if (currentSelection.type === 'number' && parseInt(currentSelection.value) === winningNumber) {
+            multiplier = 36; 
         }
 
-        // --- 4. TRANSAKCJA FIREBASE ---
         await runTransaction(db, async (t) => {
             const userRef = doc(db, "uzytkownicy", currentUserId);
             const userDoc = await t.get(userRef);
@@ -1322,7 +1313,7 @@ window.commitSpin = async function() {
             if (d.cash < amount) throw new Error("Brak środków (walidacja serwera)");
 
             let newCash = d.cash;
-            let newProfit = d.zysk || 0; // Zabezpieczenie na starych userów
+            let newProfit = d.zysk || 0;
 
             if (multiplier > 0) {
                 const winVal = amount * multiplier;
