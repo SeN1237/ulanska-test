@@ -1,0 +1,10 @@
+{
+  "name": "ulanska-ticker",
+  "version": "1.0.0",
+  "description": "Skrypt tickera giełdy dla GitHub Actions",
+  "main": "index.js",
+  "type": "commonjs",
+  "dependencies": {
+    "firebase-admin": "^11.0.0"
+  }
+}
