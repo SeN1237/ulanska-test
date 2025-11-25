@@ -262,7 +262,45 @@ input:focus, select:focus { border-color: var(--accent-color); }
 
 /* Fixy do ruletki i innych */
 .roulette-window.embedded { width: 100%; height: 80px; background: #000; position: relative; overflow: hidden; border-radius: 8px; }
-.roulette-marker { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: gold; z-index: 10; transform: translateX(-50%); }
+/* --- KURSOR RULETKI (LINIA ŚRODKOWA) --- */
+.roulette-marker {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 4px; /* Grubsza linia */
+    background: #ffd700; /* Złoty kolor (Gold) */
+    z-index: 50; /* Bardzo wysoki index, by być nad kartami */
+    transform: translateX(-50%);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.8); /* Cień dla lepszego kontrastu */
+    pointer-events: none; /* Żeby nie blokowała kliknięć (dla pewności) */
+}
+
+/* Dodatkowy trójkąt (strzałka) na górze - styl CS:GO */
+.roulette-marker::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 15px solid #ffd700; /* Trójkąt w dół */
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+}
+
+/* Opcjonalnie: Trójkąt na dole dla symetrii */
+.roulette-marker::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 15px solid #ffd700; /* Trójkąt w górę */
+    filter: drop-shadow(0 -2px 2px rgba(0,0,0,0.5));
+}
 .roulette-strip { display: flex; height: 100%; }
 .roulette-card { width: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-right: 1px solid #333; color: white; font-weight: bold; }
 .card-creator { background: #3a7bd5; } .card-joiner { background: #ff1744; }
