@@ -352,6 +352,7 @@ document.addEventListener("DOMContentLoaded", () => {
         betAmount: document.getElementById("bet-amount"),
         placeBetButton: document.getElementById("place-bet-button"),
         activeBetsFeed: document.getElementById("active-bets-feed"),
+        betTeamSelect: document.getElementById("bet-team"),
 
         // KASYNO
         casinoAmount: document.getElementById("casino-amount"),
@@ -603,6 +604,7 @@ function startAuthListener() {
             listenToActiveBonds(currentUserId);
             listenToActiveBets(currentUserId);
             listenToPvP();
+            listenToActiveMatch();
             
             // Default view
             dom.navButtons[0].click();
@@ -813,37 +815,198 @@ function listenToActiveBonds(userId) {
     });
 }
 
-function listenToActiveBets(userId) {
-    unsubscribeActiveBets = onSnapshot(query(collection(db, "active_bets"), where("userId", "==", userId), orderBy("createdAt", "desc"), limit(10)), (snap) => {
-        dom.activeBetsFeed.innerHTML = "";
-        if(snap.empty) dom.activeBetsFeed.innerHTML = "<p>Brak zakładów.</p>";
-        snap.forEach(doc => {
-            const b = doc.data();
-            dom.activeBetsFeed.innerHTML += `<p>Stawka: ${formatujWalute(b.betAmount)} @ ${b.odds.toFixed(2)} (${b.status})</p>`;
-        });
+// --- NOWA LOGIKA BUKMACHERKI (Z TABELĄ I DNIAMI) ---
+
+function listenToActiveMatch() {
+    if (unsubscribeMatch) unsubscribeMatch();
+    // Nasłuchujemy dokumentu z meczami
+    unsubscribeMatch = onSnapshot(doc(db, "global", "zaklady"), (docSnap) => {
+        if (docSnap.exists()) {
+            matchesCache = docSnap.data().mecze || [];
+            renderBettingPanel();
+        } else {
+            dom.matchInfo.innerHTML = "<p>Brak danych zakładów.</p>";
+        }
     });
 }
+
+function renderBettingPanel() {
+    dom.matchInfo.innerHTML = "";
+    dom.bettingForm.classList.add("hidden");
+
+    if (!matchesCache || matchesCache.length === 0) {
+        dom.matchInfo.innerHTML = "<p>Obecnie brak zaplanowanych meczów.</p>";
+        return;
+    }
+
+    // 1. Grupowanie po dniach
+    const matchesByDay = {};
+    matchesCache.forEach(match => {
+        const date = match.closeTime.toDate();
+        const dateKey = date.toISOString().split('T')[0]; // Format YYYY-MM-DD
+        if (!matchesByDay[dateKey]) matchesByDay[dateKey] = [];
+        matchesByDay[dateKey].push(match);
+    });
+
+    // Sortowanie dni
+    const sortedDays = Object.keys(matchesByDay).sort();
+    
+    // Ustawienie aktywnego taba (jeśli null lub nieistniejący)
+    if (!activeDayTab || !matchesByDay[activeDayTab]) activeDayTab = sortedDays[0];
+
+    // 2. Renderowanie Paska Dni (Nav)
+    const navContainer = document.createElement("div");
+    navContainer.className = "betting-days-nav";
+
+    sortedDays.forEach(dayKey => {
+        const btn = document.createElement("button");
+        btn.className = "day-tab-btn";
+        if (dayKey === activeDayTab) btn.classList.add("active");
+        
+        const dateObj = new Date(dayKey);
+        // Formatowanie daty na polski (np. Sobota, 26.11)
+        const btnLabel = dateObj.toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric', month: 'numeric' });
+        btn.textContent = btnLabel.charAt(0).toUpperCase() + btnLabel.slice(1);
+        
+        btn.onclick = () => { 
+            activeDayTab = dayKey; 
+            renderBettingPanel(); // Przeładowanie widoku
+        };
+        navContainer.appendChild(btn);
+    });
+    dom.matchInfo.appendChild(navContainer);
+
+    // 3. Renderowanie Tabeli Meczów dla aktywnego dnia
+    const dayMatches = matchesByDay[activeDayTab];
+    // Sortowanie po godzinie
+    dayMatches.sort((a, b) => a.closeTime.seconds - b.closeTime.seconds);
+
+    const table = document.createElement("table");
+    table.className = "betting-table";
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th class="col-time">Godzina</th>
+                <th class="col-match">Mecz</th>
+                <th class="col-odds">Kursy (1 - X - 2)</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    `;
+    const tbody = table.querySelector("tbody");
+
+    dayMatches.forEach(match => {
+        const tr = document.createElement("tr");
+        const date = match.closeTime.toDate();
+        const timeStr = date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+        
+        const isClosed = match.status !== 'open';
+        const isResolved = match.status === 'resolved';
+
+        // Kolumna Czasu
+        let timeHtml = timeStr;
+        if (isResolved) timeHtml = "Koniec";
+        else if (isClosed) timeHtml = `<span class="match-live">LIVE</span>`;
+
+        // Kolumna Meczu (Drużyny + ewentualny wynik)
+        let matchHtml = `<strong>${match.teamA}</strong><br><small>vs</small><br><strong>${match.teamB}</strong>`;
+        if (isResolved) {
+            let w = match.winner === 'draw' ? 'REMIS' : (match.winner === 'teamA' ? match.teamA : match.teamB);
+            matchHtml += `<br><span class="match-finished">Wynik: ${w}</span>`;
+        }
+
+        // Helper do przycisków
+        const createBtn = (teamCode, odds, label) => `
+            <button class="table-bet-btn" ${isClosed ? 'disabled' : ''}
+                onclick="selectBet('${match.id}', '${teamCode}', ${odds}, '${match.teamA} vs ${match.teamB} [${label}]')">
+                ${label}<small>${odds.toFixed(2)}</small>
+            </button>`;
+
+        const oddsHtml = `<div class="odds-btn-group">
+            ${createBtn('teamA', match.oddsA, '1')}
+            ${createBtn('draw', match.oddsDraw, 'X')}
+            ${createBtn('teamB', match.oddsB, '2')}
+        </div>`;
+
+        tr.innerHTML = `<td class="col-time">${timeHtml}</td><td class="col-match">${matchHtml}</td><td class="col-odds">${oddsHtml}</td>`;
+        tbody.appendChild(tr);
+    });
+    
+    dom.matchInfo.appendChild(table);
+}
+
+// Funkcja globalna (na window) do obsługi kliknięcia w tabeli
+window.selectBet = function(id, team, odds, label) {
+    currentBetSelection = { id, team, odds };
+    
+    // Pokazujemy formularz
+    dom.bettingForm.classList.remove("hidden");
+    
+    // Aktualizujemy tekst przycisku
+    dom.placeBetButton.textContent = `Postaw na: ${label} (Kurs: ${odds.toFixed(2)})`;
+    dom.placeBetButton.style.background = "var(--green)";
+    dom.placeBetButton.style.color = "#000";
+    
+    // Scroll do formularza (dla wygody na mobile)
+    dom.bettingForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    dom.betAmount.focus();
+};
 
 async function onPlaceBet(e) {
     e.preventDefault();
     if (!currentBetSelection || !currentUserId) return;
+    
     const amount = parseFloat(dom.betAmount.value);
-    if (isNaN(amount) || amount <= 0) return showMessage("Podaj kwotę", "error");
+    
+    // Walidacja
+    if (isNaN(amount) || amount <= 0) return showMessage("Podaj poprawną kwotę", "error");
     if (amount > portfolio.cash) return showMessage("Brak gotówki", "error");
 
     try {
         await runTransaction(db, async (transaction) => {
             const userRef = doc(db, "uzytkownicy", currentUserId);
             const userDoc = await transaction.get(userRef);
-            if(userDoc.data().cash < amount) throw new Error("Brak środków");
+            
+            if(userDoc.data().cash < amount) throw new Error("Brak środków (walidacja serwera)");
+            
+            // Pobranie gotówki
             const newCash = userDoc.data().cash - amount;
-            transaction.update(userRef, { cash: newCash, totalValue: calculateTotalValue(newCash, userDoc.data().shares) });
+            // Aktualizacja wartości portfela (gotówka spada, akcje bez zmian)
+            const newVal = calculateTotalValue(newCash, userDoc.data().shares);
+            
+            transaction.update(userRef, { cash: newCash, totalValue: newVal });
+            
+            // Utworzenie zakładu
             const betRef = doc(collection(db, "active_bets"));
-            transaction.set(betRef, { userId: currentUserId, userName: portfolio.name, matchId: currentBetSelection.id, betOn: currentBetSelection.team, odds: currentBetSelection.odds, betAmount: amount, status: "pending", createdAt: serverTimestamp() });
+            transaction.set(betRef, {
+                userId: currentUserId,
+                userName: portfolio.name,
+                matchId: currentBetSelection.id,
+                betOn: currentBetSelection.team, // 'teamA', 'teamB' lub 'draw'
+                odds: currentBetSelection.odds,
+                betAmount: amount,
+                matchResolveTime: null, 
+                status: "pending",
+                createdAt: serverTimestamp()
+            });
         });
+
+        // Dodanie wpisu do historii
+        await addDoc(collection(db, "historia_transakcji"), {
+            userId: currentUserId, userName: portfolio.name,
+            type: "ZAKŁAD SPORTOWY", companyName: "Bukmacher",
+            amount: 1, pricePerShare: currentBetSelection.odds, totalValue: -amount,
+            timestamp: serverTimestamp(), status: "executed"
+        });
+
         showMessage("Zakład przyjęty!", "success");
+        dom.betAmount.value = "";
         dom.bettingForm.classList.add("hidden");
-    } catch (err) { showMessage("Błąd: " + err.message, "error"); }
+        
+    } catch (err) {
+        console.error(err);
+        showMessage("Błąd: " + err.message, "error");
+    }
 }
 
 async function onCreatePvP(e) {
