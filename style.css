@@ -141,15 +141,50 @@ input:focus, select:focus { border-color: var(--accent-color); }
 .rumor-opts { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
 .rumor-opts button { background: var(--accent-color); border: none; padding: 10px; border-radius: 8px; cursor: pointer; }
 
-/* Sidebar */
+/* --- SIDEBAR & PORTFOLIO (POPRAWKI) --- */
 .wallet-summary { display: flex; justify-content: space-between; margin-bottom: 15px; }
 .wallet-item { display: flex; flex-direction: column; }
 .wallet-item .label { font-size: 0.8rem; color: var(--text-muted); }
 .wallet-item .value { font-weight: bold; }
 .wallet-item .value.accent { color: var(--accent-color); }
 
-.assets-list p { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed rgba(255,255,255,0.1); font-size: 0.9rem; margin: 0; }
+/* Kontener Wykresu - Wyśrodkowanie */
+#portfolio-chart-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 260px;
+    margin-bottom: 10px;
+}
 
+/* Nowy styl listy aktywów (flexbox dla rozstrzelenia tekstu) */
+.assets-list {
+    margin-top: 15px;
+}
+
+.assets-list .asset-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.15); /* Przerywana linia */
+    font-size: 0.9rem;
+}
+
+.assets-list .asset-row:last-child {
+    border-bottom: none;
+}
+
+.assets-list .asset-name {
+    color: var(--text-muted);
+}
+
+.assets-list .asset-value {
+    font-weight: bold;
+    color: #fff;
+}
+
+/* Leaderboard i inne feedy */
 #leaderboard-list { padding-left: 0; list-style: none; margin: 0; }
 #leaderboard-list li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .highlight-me { color: var(--accent-color); font-weight: bold; }
@@ -231,9 +266,8 @@ input:focus, select:focus { border-color: var(--accent-color); }
 .roulette-strip { display: flex; height: 100%; }
 .roulette-card { width: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-right: 1px solid #333; color: white; font-weight: bold; }
 .card-creator { background: #3a7bd5; } .card-joiner { background: #ff1744; }
-/* --- BUKMACHERKA (PORT Z MAIN) --- */
 
-/* Pasek z przyciskami dni */
+/* --- BUKMACHERKA (PORT Z MAIN) --- */
 .betting-days-nav {
     display: flex;
     gap: 10px;
@@ -263,7 +297,7 @@ input:focus, select:focus { border-color: var(--accent-color); }
 
 .day-tab-btn.active {
     background-color: var(--accent-color);
-    color: #000; /* Czarny tekst na jasnym akcencie */
+    color: #000; 
     border-color: var(--accent-color);
     box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
 }
@@ -293,12 +327,10 @@ input:focus, select:focus { border-color: var(--accent-color); }
     border-bottom: none;
 }
 
-/* Kolumny */
 .col-time { width: 15%; color: var(--text-muted); font-size: 0.8em; }
 .col-match { width: 40%; }
 .col-odds { width: 45%; }
 
-/* Grupa przycisków kursów */
 .odds-btn-group {
     display: flex;
     gap: 5px;
@@ -335,11 +367,10 @@ input:focus, select:focus { border-color: var(--accent-color); }
 .table-bet-btn small {
     display: block;
     font-weight: bold;
-    color: var(--accent-color); /* Kolor kursu */
+    color: var(--accent-color); 
     margin-top: 2px;
 }
 
-/* Statusy */
 .match-live { color: var(--red); font-weight: bold; animation: pulse 1.5s infinite; }
 .match-finished { color: var(--text-muted); font-style: italic; }
 
