@@ -31,13 +31,13 @@ let market = {
     brzozair:   { name: "BrzozAir",      price: 1, previousPrice: null, history: [], type: 'stock' },
     rychbud:    { name: "RychBud",       price: 1, previousPrice: null, history: [], type: 'stock' },
     cosmosanit: { name: "Cosmosanit",    price: 100, previousPrice: null, history: [], type: 'stock' },
-    nicorp:     { name: "Nicorp",        price: 1000, previousPrice: null, history: [], type: 'crypto' },
+    bartcoin:   { name: "Bartcoin",      price: 1000, previousPrice: null, history: [], type: 'crypto' },
     igirium:    { name: "Igirium",       price: 500, previousPrice: null, history: [], type: 'crypto' }
 };
 
 const companyAbbreviations = {
     ulanska: "UŁDEV", rychbud: "RBUD", brzozair: "BAIR", cosmosanit: "COSIT",
-    nicorp: "NIC", igirium: "IGI"
+    bartcoin: "BRC", igirium: "IGI"
 };
 
 let currentCompanyId = "ulanska";
@@ -45,7 +45,7 @@ let currentMarketType = "stocks";
 
 let portfolio = {
     name: "Gość", cash: 0,
-    shares: { ulanska: 0, rychbud: 0, brzozair: 0, cosmosanit: 0, nicorp: 0, igirium: 0 },
+    shares: { ulanska: 0, rychbud: 0, brzozair: 0, cosmosanit: 0, bartcoin: 0, igirium: 0 },
     stats: { totalTrades: 0, tipsPurchased: 0, bondsPurchased: 0 },
     startValue: 100, zysk: 0, totalValue: 0, prestigeLevel: 0 
 };
@@ -53,8 +53,8 @@ let portfolio = {
 const PRESTIGE_REQUIREMENTS = [15000, 30000, 60000, 120000];
 const TIP_COSTS = [1500, 1400, 1200, 1100, 1000];
 const CRYPTO_PRESTIGE_REQUIREMENT = 3; 
-const COMPANY_ORDER = ["ulanska", "rychbud", "brzozair", "cosmosanit", "nicorp", "igirium"];
-const CHART_COLORS = ['#00d2ff', '#FF6384', '#36A2EB', '#4BC0C0', '#9966FF', '#F0B90B', '#627EEA'];
+const COMPANY_ORDER = ["ulanska", "rychbud", "brzozair", "cosmosanit", "bartcoin", "igirium"];
+const CHART_COLORS = ['var(--blue)', '#FF6384', '#36A2EB', '#4BC0C0', '#9966FF', '#F0B90B', '#627EEA'];
 
 // Zmienne UI/Logic
 let chart = null;
@@ -67,7 +67,7 @@ let initialChatLoaded = false;
 let audioUnlocked = false; 
 let isChatCooldown = false;
 
-// Zmienne dla zakładów
+// --- ZMIENNE DLA ZAKŁADÓW ---
 let matchesCache = []; 
 let activeDayTab = null; 
 let currentBetSelection = null; 
@@ -88,7 +88,7 @@ let unsubscribePvP = null;
 
 let dom = {};
 
-// --- FUNKCJE POMOCNICZE (Definicje przed użyciem) ---
+// --- FUNKCJE POMOCNICZE ---
 function generateInitialCandles(count, basePrice) {
     let data = []; let lastClose = basePrice || 1;
     let timestamp = new Date().getTime() - (count * 15000);
@@ -159,24 +159,17 @@ function showNotification(message, type, impactType = null) {
     setTimeout(() => { toast.classList.add('toast-fade-out'); setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 500); }, 5000);
 }
 
-// --- NASŁUCHIWACZ CEN (Główna pętla danych) ---
+// --- NASŁUCHIWACZ CEN ---
 const cenyDocRef = doc(db, "global", "ceny_akcji");
 onSnapshot(cenyDocRef, (docSnap) => {
     if (docSnap.exists()) {
         const aktualneCeny = docSnap.data();
-        
-        // Mapowanie wsteczne dla starej bazy danych
-        if(aktualneCeny['bartcoin'] && !aktualneCeny['nicorp']) {
-            aktualneCeny['nicorp'] = aktualneCeny['bartcoin'];
-        }
-
         for (const companyId in market) {
             if (aktualneCeny[companyId] !== undefined) {
                 market[companyId].previousPrice = market[companyId].price;
                 market[companyId].price = aktualneCeny[companyId];
             }
         }
-        
         if (!chartHasStarted) {
             for (const companyId in market) {
                 if (market[companyId].price && market[companyId].history.length === 0) {
@@ -198,79 +191,12 @@ onSnapshot(cenyDocRef, (docSnap) => {
     }
 });
 
-// --- FUNKCJE LOGOWANIA I REJESTRACJI (Te brakowały!) ---
-async function onRegister(e) {
-    e.preventDefault();
-    const name = dom.registerForm.querySelector("#register-name").value;
-    const email = dom.registerForm.querySelector("#register-email").value;
-    const password = dom.registerForm.querySelector("#register-password").value;
-    try {
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
-        if (cred.user) {
-            await setDoc(doc(db, "uzytkownicy", cred.user.uid), {
-                name: name, email: email, cash: 1000.00,
-                shares: { ulanska: 0, rychbud: 0, brzozair: 0, cosmosanit: 0, nicorp: 0, igirium: 0 },
-                stats: { totalTrades: 0, tipsPurchased: 0, bondsPurchased: 0 },
-                startValue: 1000.00, zysk: 0.00, totalValue: 1000.00,
-                joinDate: Timestamp.fromDate(new Date()), prestigeLevel: 0 
-            });
-        }
-    } catch (err) { showAuthMessage(err.message, "error"); }
-}
-
-async function onLogin(e) { 
-    e.preventDefault(); 
-    try { 
-        await signInWithEmailAndPassword(
-            auth, 
-            dom.loginForm.querySelector("#login-email").value, 
-            dom.loginForm.querySelector("#login-password").value
-        ); 
-    } catch (err) { 
-        showAuthMessage(err.message, "error"); 
-    } 
-}
-
-function onLogout() { signOut(auth); }
-
-async function onResetPassword(e) {
-    e.preventDefault();
-    const email = dom.loginForm.querySelector("#login-email").value;
-    if(!email) return showAuthMessage("Podaj email", "error");
-    try { await sendPasswordResetEmail(auth, email); showAuthMessage("Wysłano link", "success"); } catch(err) { showAuthMessage(err.message, "error"); }
-}
-
-// --- FUNKCJA NAWIGACJI (Nowa) ---
-function onSelectView(e) {
-    const viewName = e.currentTarget.dataset.view;
-    
-    // Aktualizacja przycisków
-    dom.navButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.view === viewName));
-    
-    // Przełączanie widoków
-    dom.views.forEach(view => {
-        if (view.id === `view-${viewName}`) {
-            view.classList.add("active");
-            view.classList.remove("hidden");
-        } else {
-            view.classList.remove("active");
-            setTimeout(() => { if(!view.classList.contains('active')) view.classList.add('hidden') }, 500);
-        }
-    });
-
-    // Jeśli wracamy na giełdę, odświeżamy wykres
-    if (viewName === 'market' && chart) {
-        chart.render();
-    }
-}
-
 // --- START APLIKACJI ---
 document.addEventListener("DOMContentLoaded", () => {
     const savedTheme = localStorage.getItem('simulatorTheme') || 'dark';
     document.body.setAttribute('data-theme', savedTheme);
 
     dom = {
-        // Auth
         authContainer: document.getElementById("auth-container"),
         simulatorContainer: document.getElementById("simulator-container"),
         loginForm: document.getElementById("login-form"),
@@ -282,12 +208,10 @@ document.addEventListener("DOMContentLoaded", () => {
         username: document.getElementById("username"),
         logoutButton: document.getElementById("logout-button"),
         
-        // Navigation (NOWE)
         navButtons: document.querySelectorAll(".nav-btn"),
         views: document.querySelectorAll(".view-section"),
         entertainmentCash: document.getElementById("entertainment-cash-display"),
 
-        // Main UI
         themeSelect: document.getElementById("theme-select"),
         tickerContent: document.getElementById("ticker-content"),
         marketTypeTabs: document.querySelectorAll(".market-type-tab"),
@@ -297,7 +221,6 @@ document.addEventListener("DOMContentLoaded", () => {
         stockPrice: document.getElementById("stock-price"),
         chartContainer: document.getElementById("chart-container"),
         
-        // Portfolio & Orders
         cash: document.getElementById("cash"),
         totalValue: document.getElementById("total-value"),
         totalProfit: document.getElementById("total-profit"),
@@ -316,14 +239,12 @@ document.addEventListener("DOMContentLoaded", () => {
         messageBox: document.getElementById("message-box"),
         cryptoGateMessage: document.querySelector(".crypto-gate-message"),
 
-        // Limit
         limitOrderForm: document.getElementById("limit-order-form"),
         limitType: document.getElementById("limit-type"),
         limitAmount: document.getElementById("limit-amount"),
         limitPrice: document.getElementById("limit-price"),
         limitOrdersFeed: document.getElementById("limit-orders-feed"),
         
-        // Rumors & News
         rumorForm: document.getElementById("rumor-form"),
         rumorInput: document.getElementById("rumor-input"),
         rumorsFeed: document.getElementById("rumors-feed"),
@@ -332,12 +253,10 @@ document.addEventListener("DOMContentLoaded", () => {
         newsFeed: document.getElementById("news-feed"), 
         leaderboardList: document.getElementById("leaderboard-list"),
         
-        // Chat
         chatForm: document.getElementById("chat-form"),
         chatInput: document.getElementById("chat-input"),
         chatFeed: document.getElementById("chat-feed"),
         
-        // History & Bonds
         historyTabButtons: document.querySelectorAll("#history-tabs-panel .tab-btn"),
         globalHistoryFeed: document.getElementById("global-history-feed"),
         personalHistoryFeed: document.getElementById("personal-history-feed"),
@@ -346,24 +265,20 @@ document.addEventListener("DOMContentLoaded", () => {
         bondType: document.getElementById("bond-type"),
         activeBondsFeed: document.getElementById("active-bonds-feed"),
         
-        // Zakłady
         matchInfo: document.getElementById("match-info"),
         bettingForm: document.getElementById("betting-form"),
         betAmount: document.getElementById("bet-amount"),
+        betTeamSelect: document.getElementById("bet-team"),
         placeBetButton: document.getElementById("place-bet-button"),
         activeBetsFeed: document.getElementById("active-bets-feed"),
-        betTeamSelect: document.getElementById("bet-team"),
 
-        // KASYNO
         casinoAmount: document.getElementById("casino-amount"),
         casinoStatus: document.getElementById("casino-status"),
         
-        // PVP
         pvpForm: document.getElementById("pvp-create-form"),
         pvpAmount: document.getElementById("pvp-amount"),
         pvpFeed: document.getElementById("pvp-feed"),
         
-        // Modal
         modalOverlay: document.getElementById("user-profile-modal"),
         modalCloseButton: document.getElementById("modal-close-button"),
         modalUsername: document.getElementById("modal-username"),
@@ -374,11 +289,12 @@ document.addEventListener("DOMContentLoaded", () => {
         modalPortfolioChartContainer: document.getElementById("modal-portfolio-chart-container"),
         modalPrestigeLevel: document.getElementById("modal-prestige-level"), 
         modalTotalTrades: document.getElementById("modal-total-trades"),
+        modalTipsPurchased: document.getElementById("modal-tips-purchased"),
+        modalBondsPurchased: document.getElementById("modal-bonds-purchased"),
         prestigeInfo: document.getElementById("prestige-info"), 
         prestigeNextGoal: document.getElementById("prestige-next-goal"), 
         prestigeButton: document.getElementById("prestige-button"), 
 
-        // Audio
         audioKaching: document.getElementById("audio-kaching"),
         audioError: document.getElementById("audio-error"),
         audioNews: document.getElementById("audio-news"),
@@ -387,7 +303,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if(dom.themeSelect) dom.themeSelect.value = savedTheme;
 
-    // Listenery
     dom.navButtons.forEach(btn => btn.addEventListener("click", onSelectView)); 
     dom.registerForm.addEventListener("submit", onRegister);
     dom.loginForm.addEventListener("submit", onLogin);
@@ -420,22 +335,116 @@ document.addEventListener("DOMContentLoaded", () => {
     startAuthListener();
 });
 
-// --- OBSŁUGA DANYCH PORTFELA ---
+// --- FUNKCJE UI POMOCNICZE ---
+function unlockAudio() {
+    if (audioUnlocked) return; 
+    try {
+        dom.audioKaching.play().catch(e => {}); dom.audioKaching.pause();
+        dom.audioError.play().catch(e => {}); dom.audioError.pause();
+        dom.audioNews.play().catch(e => {}); dom.audioNews.pause();
+        audioUnlocked = true;
+    } catch (e) {}
+}
+function onChangeTheme(e) {
+    const theme = e.target.value;
+    document.body.setAttribute('data-theme', theme);
+    localStorage.setItem('simulatorTheme', theme);
+    const newMode = (theme === 'light') ? 'light' : 'dark';
+    if (chart) chart.updateOptions({ theme: { mode: newMode } });
+    if (portfolioChart) portfolioChart.updateOptions({ theme: { mode: newMode } });
+    if (modalPortfolioChart) modalPortfolioChart.updateOptions({ theme: { mode: newMode } });
+}
+
+// --- NAWIGACJA ---
+function onSelectView(e) {
+    const viewName = e.currentTarget.dataset.view;
+    dom.navButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.view === viewName));
+    dom.views.forEach(view => {
+        if (view.id === `view-${viewName}`) {
+            view.classList.add("active");
+            view.classList.remove("hidden");
+        } else {
+            view.classList.remove("active");
+            setTimeout(() => { if(!view.classList.contains('active')) view.classList.add('hidden') }, 500);
+        }
+    });
+    if (viewName === 'market' && chart) chart.render();
+}
+
+// --- AUTH LOGIC ---
+function startAuthListener() {
+    onAuthStateChanged(auth, user => {
+        if (user) {
+            currentUserId = user.uid;
+            dom.simulatorContainer.classList.remove("hidden");
+            dom.authContainer.classList.add("hidden");
+            const oneTimeClickListener = () => { unlockAudio(); document.body.removeEventListener('click', oneTimeClickListener); };
+            document.body.addEventListener('click', oneTimeClickListener);
+            
+            listenToPortfolioData(currentUserId);
+            listenToRumors();
+            listenToMarketNews(); 
+            listenToLeaderboard();
+            listenToChat(); 
+            listenToGlobalHistory();
+            listenToPersonalHistory(currentUserId);
+            listenToLimitOrders(currentUserId);
+            listenToActiveBonds(currentUserId);
+            listenToActiveMatch();
+            listenToActiveBets(currentUserId);
+            listenToPvP();
+            
+            // Default view
+            if(dom.navButtons.length > 0) dom.navButtons[0].click();
+        } else {
+            currentUserId = null;
+            dom.simulatorContainer.classList.add("hidden");
+            dom.authContainer.classList.remove("hidden");
+            dom.authContainer.classList.remove("show-register");
+            
+            if (unsubscribePortfolio) unsubscribePortfolio();
+            if (unsubscribeMatch) unsubscribeMatch();
+            if (unsubscribePvP) unsubscribePvP();
+            
+            chartHasStarted = false; chart = null; portfolioChart = null;
+        }
+    });
+}
+async function onRegister(e) {
+    e.preventDefault();
+    const name = dom.registerForm.querySelector("#register-name").value;
+    const email = dom.registerForm.querySelector("#register-email").value;
+    const password = dom.registerForm.querySelector("#register-password").value;
+    try {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        if (cred.user) {
+            await setDoc(doc(db, "uzytkownicy", cred.user.uid), {
+                name: name, email: email, cash: 1000.00,
+                shares: { ulanska: 0, rychbud: 0, brzozair: 0, cosmosanit: 0, bartcoin: 0, igirium: 0 },
+                stats: { totalTrades: 0, tipsPurchased: 0, bondsPurchased: 0 },
+                startValue: 1000.00, zysk: 0.00, totalValue: 1000.00,
+                joinDate: Timestamp.fromDate(new Date()), prestigeLevel: 0 
+            });
+        }
+    } catch (err) { showAuthMessage(err.message, "error"); }
+}
+async function onLogin(e) { e.preventDefault(); try { await signInWithEmailAndPassword(auth, dom.loginForm.querySelector("#login-email").value, dom.loginForm.querySelector("#login-password").value); } catch (err) { showAuthMessage(err.message, "error"); } }
+function onLogout() { signOut(auth); }
+async function onResetPassword(e) {
+    e.preventDefault();
+    const email = dom.loginForm.querySelector("#login-email").value;
+    if(!email) return showAuthMessage("Podaj email", "error");
+    try { await sendPasswordResetEmail(auth, email); showAuthMessage("Wysłano link", "success"); } catch(err) { showAuthMessage(err.message, "error"); }
+}
+
+// --- PORTFOLIO DATA ---
 function listenToPortfolioData(userId) {
     unsubscribePortfolio = onSnapshot(doc(db, "uzytkownicy", userId), (docSnap) => {
         if (docSnap.exists()) {
             const data = docSnap.data();
             portfolio.name = data.name;
             portfolio.cash = data.cash;
-            
-            // Mapowanie shares w locie jeśli stare dane mają bartcoin
-            let shares = data.shares || {};
-            if(shares['bartcoin'] !== undefined) {
-                shares['nicorp'] = (shares['nicorp'] || 0) + shares['bartcoin'];
-                delete shares['bartcoin'];
-            }
-            portfolio.shares = shares;
-
+            portfolio.shares = data.shares || portfolio.shares;
             portfolio.stats = data.stats || portfolio.stats;
             portfolio.startValue = data.startValue;
             portfolio.prestigeLevel = data.prestigeLevel || 0; 
@@ -444,7 +453,6 @@ function listenToPortfolioData(userId) {
         }
     });
 }
-
 function updatePortfolioUI() {
     if (!dom || !dom.username) return;
     const stars = getPrestigeStars(portfolio.prestigeLevel);
@@ -453,7 +461,6 @@ function updatePortfolioUI() {
     dom.buyTipButton.disabled = portfolio.cash < TIP_COSTS[portfolio.prestigeLevel];
     dom.cash.textContent = formatujWalute(portfolio.cash);
     
-    // Update gotówki w zakładce rozrywki
     if(dom.entertainmentCash) dom.entertainmentCash.textContent = formatujWalute(portfolio.cash);
 
     let html = "";
@@ -478,7 +485,211 @@ function updatePortfolioUI() {
     if (dom.modalOverlay && !dom.modalOverlay.classList.contains("hidden")) updatePrestigeButton(total, portfolio.prestigeLevel);
 }
 
-// --- FUNKCJE HANDLU ---
+// =========================================================
+// === SEKCJA ZAKŁADÓW (NOWA LOGIKA Z TABELĄ I DNIAMI) ===
+// =========================================================
+
+function listenToActiveMatch() {
+    if (unsubscribeMatch) unsubscribeMatch();
+    unsubscribeMatch = onSnapshot(doc(db, "global", "zaklady"), (docSnap) => {
+        if (docSnap.exists()) {
+            matchesCache = docSnap.data().mecze || [];
+            renderBettingPanel();
+        } else {
+            dom.matchInfo.innerHTML = "<p>Brak danych zakładów.</p>";
+        }
+    });
+}
+
+function renderBettingPanel() {
+    dom.matchInfo.innerHTML = "";
+    dom.bettingForm.classList.add("hidden");
+
+    if (!matchesCache || matchesCache.length === 0) {
+        dom.matchInfo.innerHTML = "<p>Obecnie brak zaplanowanych meczów.</p>";
+        return;
+    }
+
+    const matchesByDay = {};
+    matchesCache.forEach(match => {
+        const date = match.closeTime.toDate();
+        const dateKey = date.toISOString().split('T')[0]; 
+        if (!matchesByDay[dateKey]) matchesByDay[dateKey] = [];
+        matchesByDay[dateKey].push(match);
+    });
+
+    const sortedDays = Object.keys(matchesByDay).sort();
+    if (!activeDayTab || !matchesByDay[activeDayTab]) activeDayTab = sortedDays[0];
+
+    const navContainer = document.createElement("div");
+    navContainer.className = "betting-days-nav";
+
+    sortedDays.forEach(dayKey => {
+        const btn = document.createElement("button");
+        btn.className = "day-tab-btn";
+        if (dayKey === activeDayTab) btn.classList.add("active");
+        
+        const dateObj = new Date(dayKey);
+        const btnLabel = dateObj.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'numeric' });
+        btn.textContent = btnLabel.charAt(0).toUpperCase() + btnLabel.slice(1);
+        btn.onclick = () => { activeDayTab = dayKey; renderBettingPanel(); };
+        navContainer.appendChild(btn);
+    });
+    dom.matchInfo.appendChild(navContainer);
+
+    const dayMatches = matchesByDay[activeDayTab];
+    dayMatches.sort((a, b) => a.closeTime.seconds - b.closeTime.seconds);
+
+    const table = document.createElement("table");
+    table.className = "betting-table";
+    table.innerHTML = `<thead><tr><th class="col-time">Godzina</th><th class="col-match">Mecz</th><th class="col-odds">Kursy (1 - X - 2)</th></tr></thead><tbody></tbody>`;
+    const tbody = table.querySelector("tbody");
+
+    dayMatches.forEach(match => {
+        const tr = document.createElement("tr");
+        const date = match.closeTime.toDate();
+        const timeStr = date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+        const isClosed = match.status !== 'open';
+        const isResolved = match.status === 'resolved';
+
+        let timeHtml = timeStr;
+        if (isResolved) timeHtml = "Koniec";
+        else if (isClosed) timeHtml = `<span class="match-live">LIVE</span>`;
+
+        let matchHtml = `<strong>${match.teamA}</strong><br><small>vs</small><br><strong>${match.teamB}</strong>`;
+        if (isResolved) {
+            let w = match.winner === 'draw' ? 'REMIS' : (match.winner === 'teamA' ? match.teamA : match.teamB);
+            matchHtml += `<br><span class="match-finished">Wynik: ${w}</span>`;
+        }
+
+        const createBtn = (teamCode, odds, label) => `
+            <button class="table-bet-btn" ${isClosed ? 'disabled' : ''}
+                onclick="selectBet('${match.id}', '${teamCode}', ${odds}, '${match.teamA} vs ${match.teamB} [${label}]')">
+                ${label}<small>${odds.toFixed(2)}</small>
+            </button>`;
+
+        const oddsHtml = `<div class="odds-btn-group">
+            ${createBtn('teamA', match.oddsA, match.teamA)}
+            ${createBtn('draw', match.oddsDraw, 'Remis')}
+            ${createBtn('teamB', match.oddsB, match.teamB)}
+        </div>`;
+
+        tr.innerHTML = `<td class="col-time">${timeHtml}</td><td class="col-match">${matchHtml}</td><td class="col-odds">${oddsHtml}</td>`;
+        tbody.appendChild(tr);
+    });
+    dom.matchInfo.appendChild(table);
+}
+
+window.selectBet = function(id, team, odds, label) {
+    currentBetSelection = { id, team, odds };
+    dom.bettingForm.classList.remove("hidden");
+    if(dom.betTeamSelect) dom.betTeamSelect.style.display = 'none';
+    dom.placeBetButton.textContent = `Postaw na: ${label} (Kurs: ${odds.toFixed(2)})`;
+    dom.bettingForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    dom.betAmount.focus();
+};
+
+async function onPlaceBet(e) {
+    e.preventDefault();
+    if (!currentBetSelection || !currentUserId) return;
+    const amount = parseFloat(dom.betAmount.value);
+    if (isNaN(amount) || amount <= 0) return showMessage("Podaj kwotę", "error");
+    if (amount > portfolio.cash) return showMessage("Brak gotówki", "error");
+
+    try {
+        await runTransaction(db, async (transaction) => {
+            const userRef = doc(db, "uzytkownicy", currentUserId);
+            const userDoc = await transaction.get(userRef);
+            if(userDoc.data().cash < amount) throw new Error("Brak środków");
+            
+            const newCash = userDoc.data().cash - amount;
+            const newVal = calculateTotalValue(newCash, userDoc.data().shares);
+            
+            transaction.update(userRef, { cash: newCash, totalValue: newVal });
+            const betRef = doc(collection(db, "active_bets"));
+            transaction.set(betRef, {
+                userId: currentUserId,
+                userName: portfolio.name,
+                matchId: currentBetSelection.id,
+                betOn: currentBetSelection.team,
+                odds: currentBetSelection.odds,
+                betAmount: amount,
+                matchResolveTime: null, 
+                status: "pending",
+                createdAt: serverTimestamp()
+            });
+        });
+
+        await addDoc(collection(db, "historia_transakcji"), {
+            userId: currentUserId, userName: portfolio.name,
+            type: "ZAKŁAD SPORTOWY", companyName: "Bukmacher",
+            amount: 1, pricePerShare: currentBetSelection.odds, totalValue: -amount,
+            timestamp: serverTimestamp(), status: "executed"
+        });
+
+        showMessage("Zakład przyjęty!", "success");
+        dom.betAmount.value = "";
+        dom.bettingForm.classList.add("hidden");
+    } catch (err) {
+        console.error(err);
+        showMessage("Błąd: " + err.message, "error");
+    }
+}
+
+// --- NAPRAWIONA FUNKCJA: LISTEN TO ACTIVE BETS ---
+function listenToActiveBets(userId) {
+    if (unsubscribeActiveBets) unsubscribeActiveBets();
+
+    const q = query(
+        collection(db, "active_bets"),
+        where("userId", "==", userId),
+        orderBy("createdAt", "desc"),
+        limit(10)
+    );
+
+    unsubscribeActiveBets = onSnapshot(q, (snap) => {
+        dom.activeBetsFeed.innerHTML = "";
+        if (snap.empty) {
+            dom.activeBetsFeed.innerHTML = "<p>Brak aktywnych zakładów.</p>";
+            return;
+        }
+
+        snap.forEach((doc) => {
+            const b = doc.data();
+            
+            // Ustalanie statusu i koloru
+            let statusText = 'Oczekuje';
+            let statusColor = 'var(--accent-color)';
+            
+            if (b.status === 'won') {
+                statusText = 'WYGRANA';
+                statusColor = 'var(--green)';
+            } else if (b.status === 'lost') {
+                statusText = 'PRZEGRANA';
+                statusColor = 'var(--red)';
+            }
+
+            // Etykieta typu
+            let typeLabel = b.betOn;
+            if(typeLabel === 'draw') typeLabel = 'Remis';
+            else if(typeLabel === 'teamA') typeLabel = 'Gospodarze';
+            else if(typeLabel === 'teamB') typeLabel = 'Goście';
+
+            const html = `
+                <p style="display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 5px; margin: 5px 0;">
+                    <span>
+                        Typ: <strong>${typeLabel}</strong> <br>
+                        <small>Stawka: ${formatujWalute(b.betAmount)} @ ${b.odds.toFixed(2)}</small>
+                    </span>
+                    <strong style="color:${statusColor}; align-self: center;">${statusText}</strong>
+                </p>`;
+            
+            dom.activeBetsFeed.insertAdjacentHTML('beforeend', html);
+        });
+    });
+}
+
+// --- CORE TRADING ---
 function onSelectCompany(e) { if(e.target.classList.contains("company-tab")) changeCompany(e.target.dataset.company); }
 function changeCompany(cid) {
     if(!market[cid]) return;
@@ -489,7 +700,6 @@ function changeCompany(cid) {
     updatePriceUI();
     checkCryptoAccess();
 }
-
 async function buyShares() { await tradeShares(true); }
 async function sellShares() { await tradeShares(false); }
 async function tradeShares(isBuy) {
@@ -520,26 +730,21 @@ async function tradeShares(isBuy) {
         showMessage((isBuy ? "Kupiono " : "Sprzedano ") + amount + " akcji", "success");
     } catch(e) { showMessage(e.message, "error"); }
 }
+function onBuyMax() { const p = market[currentCompanyId].price; if(p>0) dom.amountInput.value = Math.floor(portfolio.cash/p); }
+function onSellMax() { dom.amountInput.value = portfolio.shares[currentCompanyId]||0; }
 
-function calculateTotalValue(cash, shares) {
-    let val = cash;
-    for(let cid in shares) if(market[cid]) val += shares[cid] * market[cid].price;
-    return val;
-}
-
-// --- INITIALIZATION CHARTS ---
+// --- CHARTS ---
 function initChart() {
     chart = new ApexCharts(dom.chartContainer, {
         series: [{ data: market[currentCompanyId].history }],
-        chart: { type: 'candlestick', height: 350, toolbar: {show:false}, animations: {enabled:false}, background: 'transparent' },
+        chart: { type: 'candlestick', height: 350, toolbar: {show:false}, animations: {enabled:false} },
         theme: { mode: document.body.getAttribute('data-theme') === 'light' ? 'light' : 'dark' },
         xaxis: { type: 'datetime' },
         yaxis: { labels: { formatter: v => v.toFixed(2) } },
-        plotOptions: { candlestick: { colors: { upward: '#00e676', downward: '#ff1744' } } }
+        plotOptions: { candlestick: { colors: { upward: '#28a745', downward: '#dc3545' } } }
     });
     chart.render();
 }
-
 function startChartTicker() {
     if (window.chartTickerInterval) clearInterval(window.chartTickerInterval);
     window.chartTickerInterval = setInterval(() => {
@@ -557,10 +762,7 @@ function startChartTicker() {
             const randomLow = Math.random() * volatility;
             const high = Math.max(open, close) + randomHigh;
             const low = Math.min(open, close) - randomLow;
-            const newCandle = {
-                x: new Date(newTime),
-                y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)]
-            };
+            const newCandle = { x: new Date(newTime), y: [open.toFixed(2), high.toFixed(2), low.toFixed(2), close.toFixed(2)] };
             history.push(newCandle);
             if (history.length > 50) history.shift();
         }
@@ -569,182 +771,20 @@ function startChartTicker() {
         }
     }, 15000); 
 }
-
 function initPortfolioChart() {
     portfolioChart = new ApexCharts(dom.portfolioChartContainer, {
         series: [portfolio.cash], labels: ['Gotówka'],
-        chart: { type: 'donut', height: 250, background: 'transparent' }, 
+        chart: { type: 'donut', height: 300 }, 
         colors: CHART_COLORS,
         theme: { mode: document.body.getAttribute('data-theme') === 'light' ? 'light' : 'dark' },
         legend: { position: 'bottom' }, 
         dataLabels: { enabled: false },
-        plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, color: 'var(--text-main)', formatter: w => formatujWalute(w.globals.seriesTotals.reduce((a, b) => a + b, 0)) } } } } }
+        plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, label: 'Wartość Portfela', formatter: w => formatujWalute(w.globals.seriesTotals.reduce((a, b) => a + b, 0)) } } } } }
     });
     portfolioChart.render();
 }
 
-// --- AUTH LOGIC START ---
-function startAuthListener() {
-    onAuthStateChanged(auth, user => {
-        if (user) {
-            currentUserId = user.uid;
-            dom.simulatorContainer.classList.remove("hidden");
-            dom.authContainer.classList.add("hidden");
-            const oneTimeClickListener = () => { unlockAudio(); document.body.removeEventListener('click', oneTimeClickListener); };
-            document.body.addEventListener('click', oneTimeClickListener);
-            
-            listenToPortfolioData(currentUserId);
-            listenToRumors();
-            listenToMarketNews(); 
-            listenToLeaderboard();
-            listenToChat(); 
-            listenToGlobalHistory();
-            listenToPersonalHistory(currentUserId);
-            listenToLimitOrders(currentUserId);
-            listenToActiveBonds(currentUserId);
-            listenToActiveBets(currentUserId);
-            listenToPvP();
-            listenToActiveMatch();
-            
-            // Default view
-            dom.navButtons[0].click();
-        } else {
-            currentUserId = null;
-            dom.simulatorContainer.classList.add("hidden");
-            dom.authContainer.classList.remove("hidden");
-            dom.authContainer.classList.remove("show-register");
-            
-            if (unsubscribePortfolio) unsubscribePortfolio();
-            // ... reszta unsubów ...
-            chartHasStarted = false; chart = null; portfolioChart = null;
-        }
-    });
-}
-
-function unlockAudio() {
-    if (audioUnlocked) return; 
-    try {
-        dom.audioKaching.play().catch(e => {}); dom.audioKaching.pause();
-        dom.audioError.play().catch(e => {}); dom.audioError.pause();
-        dom.audioNews.play().catch(e => {}); dom.audioNews.pause();
-        audioUnlocked = true;
-    } catch (e) {}
-}
-
-function onChangeTheme(e) {
-    const theme = e.target.value;
-    document.body.setAttribute('data-theme', theme);
-    localStorage.setItem('simulatorTheme', theme);
-    const newMode = (theme === 'light') ? 'light' : 'dark';
-    if (chart) chart.updateOptions({ theme: { mode: newMode } });
-    if (portfolioChart) portfolioChart.updateOptions({ theme: { mode: newMode } });
-}
-
-// --- HANDLERS (Pozostałe) ---
-function onBuyMax() { const p = market[currentCompanyId].price; if(p>0) dom.amountInput.value = Math.floor(portfolio.cash/p); }
-function onSellMax() { dom.amountInput.value = portfolio.shares[currentCompanyId]||0; }
-function onSelectMarketType(e) {
-    const type = e.target.dataset.marketType;
-    dom.marketTypeTabs.forEach(t => t.classList.toggle("active", t.dataset.marketType === type));
-    dom.companySelector.classList.toggle("hidden", type !== 'stocks');
-    dom.cryptoSelector.classList.toggle("hidden", type !== 'crypto');
-    changeCompany(type === 'stocks' ? 'ulanska' : 'nicorp');
-}
-function onSelectOrderTab(e) {
-    const t = e.target.dataset.orderType;
-    dom.orderTabMarket.classList.toggle("active", t === 'market');
-    dom.orderTabLimit.classList.toggle("active", t === 'limit');
-    dom.orderMarketContainer.classList.toggle("active", t === 'market');
-    dom.orderLimitContainer.classList.toggle("active", t === 'limit');
-}
-function onSelectHistoryTab(e) {
-    const t = e.target.dataset.tab;
-    dom.historyTabButtons.forEach(b => b.classList.toggle("active", b.dataset.tab === t));
-    document.querySelectorAll(".tab-content").forEach(c => c.classList.toggle("active", c.id === `tab-${t}`));
-}
-
-// --- NEWSY I PLOTKI ---
-function listenToMarketNews() {
-    unsubscribeNews = onSnapshot(query(collection(db, "gielda_news"), orderBy("timestamp", "desc"), limit(5)), snap => {
-        snap.docChanges().forEach(c => { if(c.type==='added') {
-            const n = c.doc.data();
-            if(initialNewsLoaded) showNotification(n.text, 'news', n.impactType);
-            dom.newsFeed.insertAdjacentHTML('afterbegin', `<p style="color:${n.impactType==='positive'?'var(--green)':'var(--red)'}">${n.text}</p>`);
-        }});
-        initialNewsLoaded = true;
-    });
-}
-function listenToRumors() {
-    unsubscribeRumors = onSnapshot(query(collection(db, "plotki"), orderBy("timestamp", "desc"), limit(10)), snap => {
-        dom.rumorsFeed.innerHTML = "";
-        snap.forEach(d => {
-            const r = d.data();
-            dom.rumorsFeed.innerHTML += `<p style="color:${r.sentiment==='positive'?'var(--green)':'var(--red)'}">[${market[r.companyId]?market[r.companyId].name:'??'}] ${r.text} <small>- ${r.authorName}</small></p>`;
-        });
-    });
-}
-async function onPostRumor(e) {
-    e.preventDefault();
-    const txt = dom.rumorInput.value;
-    const cid = document.getElementById("rumor-company-select").value;
-    const sent = document.querySelector('input[name="sentiment"]:checked').value;
-    if(!txt) return;
-    await addDoc(collection(db, "plotki"), { text: txt, authorId: currentUserId, authorName: portfolio.name, prestigeLevel: portfolio.prestigeLevel, timestamp: new Date(), companyId: cid, sentiment: sent, impact: (Math.random()*0.04+0.01)*(sent==='positive'?1:-1) });
-    dom.rumorInput.value = "";
-}
-
-// --- POZOSTAŁE FUNKCJE (Czat, Limit, Bonds, Betting, PvP, Roulette) ---
-// (Wklejam skrócone wersje dla oszczędności miejsca, ale funkcjonalne)
-
-function listenToChat() {
-    unsubscribeChat = onSnapshot(query(collection(db, "chat_messages"), orderBy("timestamp", "desc"), limit(30)), snap => {
-        dom.chatFeed.innerHTML = "";
-        snap.docs.slice().reverse().forEach(d => {
-            const m = d.data();
-            dom.chatFeed.innerHTML += `<p class="${m.authorId===currentUserId?'my-message':''}"><strong onclick="showUserProfile('${m.authorId}')">${m.authorName}</strong>${getPrestigeStars(m.prestigeLevel,'chat')}: ${m.text}</p>`;
-        });
-        dom.chatFeed.scrollTop = dom.chatFeed.scrollHeight;
-        if (initialChatLoaded) {
-            snap.docChanges().forEach(change => {
-                if (change.type === "added") {
-                    const m = change.doc.data();
-                    if (m.authorId !== currentUserId) showNotification(`${m.authorName}: ${m.text}`, 'chat');
-                }
-            });
-        }
-        initialChatLoaded = true;
-    });
-}
-async function onSendMessage(e) {
-    e.preventDefault();
-    if(isChatCooldown) return showMessage("Zwolnij!", "error");
-    const txt = dom.chatInput.value.trim();
-    if(!txt) return;
-    isChatCooldown = true;
-    await addDoc(collection(db, "chat_messages"), { text: txt, authorName: portfolio.name, authorId: currentUserId, prestigeLevel: portfolio.prestigeLevel, timestamp: serverTimestamp() });
-    dom.chatInput.value = "";
-    setTimeout(() => isChatCooldown = false, 15000);
-}
-
-function listenToLeaderboard() {
-    unsubscribeLeaderboard = onSnapshot(query(collection(db, "uzytkownicy"), orderBy("totalValue", "desc"), limit(10)), snap => {
-        dom.leaderboardList.innerHTML = "";
-        let r = 1;
-        snap.forEach(d => {
-            const u = d.data();
-            const profitValue = u.totalValue - u.startValue;
-            dom.leaderboardList.innerHTML += `
-                <li class="${d.id === currentUserId ? 'highlight-me' : ''}">
-                    <div onclick="showUserProfile('${d.id}')">
-                        ${r}. ${u.name} ${getPrestigeStars(u.prestigeLevel)}
-                    </div>
-                    <div>${formatujWalute(u.totalValue)}</div>
-                </li>`;
-            r++;
-        });
-    });
-}
-
+// --- INNE FUNKCJE ---
 async function onPlaceLimitOrder(e) {
     e.preventDefault();
     if (!currentUserId) return;
@@ -776,10 +816,14 @@ function listenToLimitOrders(userId) {
     unsubscribeLimitOrders = onSnapshot(query(collection(db, "limit_orders"), where("userId", "==", userId), orderBy("timestamp", "desc")), snap => {
         dom.limitOrdersFeed.innerHTML = "";
         if(snap.empty) dom.limitOrdersFeed.innerHTML = "<p>Brak zleceń.</p>";
+        const t = document.createElement("table"); t.className="limit-order-table"; t.innerHTML = "<thead><tr><th>Typ</th><th>Spółka</th><th>Ilość</th><th>Cena</th><th>Status</th><th>Akcja</th></tr></thead><tbody></tbody>";
         snap.forEach(d => {
             const o = d.data();
-            dom.limitOrdersFeed.innerHTML += `<p>${o.type} ${o.companyName} (${o.amount}szt @ ${o.limitPrice}) - ${o.status} <button onclick="cancelLimit('${d.id}')">X</button></p>`;
+            const cls = o.type.includes("KUPNO") ? (o.type.includes("Krypto")?"l-type-buy-crypto":"l-type-buy") : (o.type.includes("Krypto")?"l-type-sell-crypto":"l-type-sell");
+            const act = o.status === 'pending' ? `<button class="cancel-order-btn" onclick="cancelLimit('${d.id}')">Anuluj</button>` : '-';
+            t.querySelector("tbody").innerHTML += `<tr><td class="${cls}">${o.type}</td><td>${o.companyName}</td><td>${o.amount}</td><td>${o.limitPrice}</td><td>${o.status}</td><td>${act}</td></tr>`;
         });
+        if(!snap.empty) dom.limitOrdersFeed.appendChild(t);
     });
 }
 window.cancelLimit = async function(id) { if(confirm("Anulować?")) await updateDoc(doc(db, "limit_orders", id), {status: "cancelled"}); };
@@ -801,6 +845,7 @@ async function onBuyBond(e) {
             const bondRef = doc(collection(db, "active_bonds"));
             t.set(bondRef, { userId: currentUserId, name: `Obligacja ${days}d (${rate*100}%)`, investment: amt, profit, redeemAt: Timestamp.fromMillis(Date.now()+(days*86400000)), status: "pending", createdAt: serverTimestamp() });
         });
+        await addDoc(collection(db, "historia_transakcji"), { userId: currentUserId, userName: portfolio.name, type: "OBLIGACJA (ZAKUP)", companyName: `Obligacja ${days}d`, amount:0, pricePerShare:0, totalValue:-amt, timestamp: serverTimestamp(), status:"executed" });
         showMessage("Kupiono obligację!", "success");
     } catch(e) { showMessage(e.message, "error"); }
 }
@@ -810,346 +855,102 @@ function listenToActiveBonds(userId) {
         snap.forEach(d => {
             const b = d.data();
             const st = b.status==='pending' ? `Oczekuje` : 'Wykupiona';
-            dom.activeBondsFeed.innerHTML += `<p><strong>${b.name}</strong>: ${formatujWalute(b.investment)} -> ${formatujWalute(b.investment+b.profit)} (${st})</p>`;
+            dom.activeBondsFeed.innerHTML += `<p><strong>${b.name}</strong>: ${formatujWalute(b.investment)} -> ${formatujWalute(b.investment+b.profit)} <br><small>${st}</small></p>`;
         });
     });
 }
 
-// --- NOWA LOGIKA BUKMACHERKI (Z TABELĄ I DNIAMI) ---
-
-function listenToActiveMatch() {
-    if (unsubscribeMatch) unsubscribeMatch();
-    // Nasłuchujemy dokumentu z meczami
-    unsubscribeMatch = onSnapshot(doc(db, "global", "zaklady"), (docSnap) => {
-        if (docSnap.exists()) {
-            matchesCache = docSnap.data().mecze || [];
-            renderBettingPanel();
-        } else {
-            dom.matchInfo.innerHTML = "<p>Brak danych zakładów.</p>";
-        }
+function listenToMarketNews() {
+    unsubscribeNews = onSnapshot(query(collection(db, "gielda_news"), orderBy("timestamp", "desc"), limit(5)), snap => {
+        snap.docChanges().forEach(c => { if(c.type==='added') {
+            const n = c.doc.data();
+            if(initialNewsLoaded) showNotification(n.text, 'news', n.impactType);
+            dom.newsFeed.insertAdjacentHTML('afterbegin', `<p style="color:${n.impactType==='positive'?'var(--green)':'var(--red)'}">${n.text}</p>`);
+        }});
+        initialNewsLoaded = true;
     });
 }
-
-function renderBettingPanel() {
-    dom.matchInfo.innerHTML = "";
-    dom.bettingForm.classList.add("hidden");
-
-    if (!matchesCache || matchesCache.length === 0) {
-        dom.matchInfo.innerHTML = "<p>Obecnie brak zaplanowanych meczów.</p>";
-        return;
-    }
-
-    // 1. Grupowanie po dniach
-    const matchesByDay = {};
-    matchesCache.forEach(match => {
-        const date = match.closeTime.toDate();
-        const dateKey = date.toISOString().split('T')[0]; // Format YYYY-MM-DD
-        if (!matchesByDay[dateKey]) matchesByDay[dateKey] = [];
-        matchesByDay[dateKey].push(match);
+function listenToRumors() {
+    unsubscribeRumors = onSnapshot(query(collection(db, "plotki"), orderBy("timestamp", "desc"), limit(10)), snap => {
+        dom.rumorsFeed.innerHTML = "";
+        snap.forEach(d => {
+            const r = d.data();
+            dom.rumorsFeed.innerHTML += `<p style="color:${r.sentiment==='positive'?'var(--green)':'var(--red)'}">[${market[r.companyId]?market[r.companyId].name:'??'}] ${r.text} <small>- ${r.authorName}</small></p>`;
+        });
     });
-
-    // Sortowanie dni
-    const sortedDays = Object.keys(matchesByDay).sort();
-    
-    // Ustawienie aktywnego taba (jeśli null lub nieistniejący)
-    if (!activeDayTab || !matchesByDay[activeDayTab]) activeDayTab = sortedDays[0];
-
-    // 2. Renderowanie Paska Dni (Nav)
-    const navContainer = document.createElement("div");
-    navContainer.className = "betting-days-nav";
-
-    sortedDays.forEach(dayKey => {
-        const btn = document.createElement("button");
-        btn.className = "day-tab-btn";
-        if (dayKey === activeDayTab) btn.classList.add("active");
-        
-        const dateObj = new Date(dayKey);
-        // Formatowanie daty na polski (np. Sobota, 26.11)
-        const btnLabel = dateObj.toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric', month: 'numeric' });
-        btn.textContent = btnLabel.charAt(0).toUpperCase() + btnLabel.slice(1);
-        
-        btn.onclick = () => { 
-            activeDayTab = dayKey; 
-            renderBettingPanel(); // Przeładowanie widoku
-        };
-        navContainer.appendChild(btn);
-    });
-    dom.matchInfo.appendChild(navContainer);
-
-    // 3. Renderowanie Tabeli Meczów dla aktywnego dnia
-    const dayMatches = matchesByDay[activeDayTab];
-    // Sortowanie po godzinie
-    dayMatches.sort((a, b) => a.closeTime.seconds - b.closeTime.seconds);
-
-    const table = document.createElement("table");
-    table.className = "betting-table";
-    table.innerHTML = `
-        <thead>
-            <tr>
-                <th class="col-time">Godzina</th>
-                <th class="col-match">Mecz</th>
-                <th class="col-odds">Kursy (1 - X - 2)</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    `;
-    const tbody = table.querySelector("tbody");
-
-    dayMatches.forEach(match => {
-        const tr = document.createElement("tr");
-        const date = match.closeTime.toDate();
-        const timeStr = date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
-        
-        const isClosed = match.status !== 'open';
-        const isResolved = match.status === 'resolved';
-
-        // Kolumna Czasu
-        let timeHtml = timeStr;
-        if (isResolved) timeHtml = "Koniec";
-        else if (isClosed) timeHtml = `<span class="match-live">LIVE</span>`;
-
-        // Kolumna Meczu (Drużyny + ewentualny wynik)
-        let matchHtml = `<strong>${match.teamA}</strong><br><small>vs</small><br><strong>${match.teamB}</strong>`;
-        if (isResolved) {
-            let w = match.winner === 'draw' ? 'REMIS' : (match.winner === 'teamA' ? match.teamA : match.teamB);
-            matchHtml += `<br><span class="match-finished">Wynik: ${w}</span>`;
-        }
-
-        // Helper do przycisków
-        const createBtn = (teamCode, odds, label) => `
-            <button class="table-bet-btn" ${isClosed ? 'disabled' : ''}
-                onclick="selectBet('${match.id}', '${teamCode}', ${odds}, '${match.teamA} vs ${match.teamB} [${label}]')">
-                ${label}<small>${odds.toFixed(2)}</small>
-            </button>`;
-
-        const oddsHtml = `<div class="odds-btn-group">
-            ${createBtn('teamA', match.oddsA, '1')}
-            ${createBtn('draw', match.oddsDraw, 'X')}
-            ${createBtn('teamB', match.oddsB, '2')}
-        </div>`;
-
-        tr.innerHTML = `<td class="col-time">${timeHtml}</td><td class="col-match">${matchHtml}</td><td class="col-odds">${oddsHtml}</td>`;
-        tbody.appendChild(tr);
-    });
-    
-    dom.matchInfo.appendChild(table);
 }
-
-// Funkcja globalna (na window) do obsługi kliknięcia w tabeli
-window.selectBet = function(id, team, odds, label) {
-    currentBetSelection = { id, team, odds };
-    
-    // Pokazujemy formularz
-    dom.bettingForm.classList.remove("hidden");
-    
-    // Aktualizujemy tekst przycisku
-    dom.placeBetButton.textContent = `Postaw na: ${label} (Kurs: ${odds.toFixed(2)})`;
-    dom.placeBetButton.style.background = "var(--green)";
-    dom.placeBetButton.style.color = "#000";
-    
-    // Scroll do formularza (dla wygody na mobile)
-    dom.bettingForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    dom.betAmount.focus();
-};
-
-async function onPlaceBet(e) {
+async function onPostRumor(e) {
     e.preventDefault();
-    if (!currentBetSelection || !currentUserId) return;
-    
-    const amount = parseFloat(dom.betAmount.value);
-    
-    // Walidacja
-    if (isNaN(amount) || amount <= 0) return showMessage("Podaj poprawną kwotę", "error");
-    if (amount > portfolio.cash) return showMessage("Brak gotówki", "error");
-
-    try {
-        await runTransaction(db, async (transaction) => {
-            const userRef = doc(db, "uzytkownicy", currentUserId);
-            const userDoc = await transaction.get(userRef);
-            
-            if(userDoc.data().cash < amount) throw new Error("Brak środków (walidacja serwera)");
-            
-            // Pobranie gotówki
-            const newCash = userDoc.data().cash - amount;
-            // Aktualizacja wartości portfela (gotówka spada, akcje bez zmian)
-            const newVal = calculateTotalValue(newCash, userDoc.data().shares);
-            
-            transaction.update(userRef, { cash: newCash, totalValue: newVal });
-            
-            // Utworzenie zakładu
-            const betRef = doc(collection(db, "active_bets"));
-            transaction.set(betRef, {
-                userId: currentUserId,
-                userName: portfolio.name,
-                matchId: currentBetSelection.id,
-                betOn: currentBetSelection.team, // 'teamA', 'teamB' lub 'draw'
-                odds: currentBetSelection.odds,
-                betAmount: amount,
-                matchResolveTime: null, 
-                status: "pending",
-                createdAt: serverTimestamp()
+    const txt = dom.rumorInput.value;
+    const cid = document.getElementById("rumor-company-select").value;
+    const sent = document.querySelector('input[name="sentiment"]:checked').value;
+    if(!txt) return;
+    await addDoc(collection(db, "plotki"), { text: txt, authorId: currentUserId, authorName: portfolio.name, prestigeLevel: portfolio.prestigeLevel, timestamp: new Date(), companyId: cid, sentiment: sent, impact: (Math.random()*0.04+0.01)*(sent==='positive'?1:-1) });
+    dom.rumorInput.value = "";
+}
+function listenToChat() {
+    unsubscribeChat = onSnapshot(query(collection(db, "chat_messages"), orderBy("timestamp", "desc"), limit(30)), snap => {
+        dom.chatFeed.innerHTML = "";
+        snap.docs.slice().reverse().forEach(d => {
+            const m = d.data();
+            dom.chatFeed.innerHTML += `<p class="${m.authorId===currentUserId?'my-message':''}"><strong class="clickable-user" onclick="showUserProfile('${m.authorId}')">${m.authorName}</strong>${getPrestigeStars(m.prestigeLevel,'chat')}: ${m.text}</p>`;
+        });
+        dom.chatFeed.scrollTop = dom.chatFeed.scrollHeight;
+        if (initialChatLoaded) {
+            snap.docChanges().forEach(change => {
+                if (change.type === "added") {
+                    const m = change.doc.data();
+                    if (m.authorId !== currentUserId) showNotification(`${m.authorName}: ${m.text}`, 'chat');
+                }
             });
-        });
-
-        // Dodanie wpisu do historii
-        await addDoc(collection(db, "historia_transakcji"), {
-            userId: currentUserId, userName: portfolio.name,
-            type: "ZAKŁAD SPORTOWY", companyName: "Bukmacher",
-            amount: 1, pricePerShare: currentBetSelection.odds, totalValue: -amount,
-            timestamp: serverTimestamp(), status: "executed"
-        });
-
-        showMessage("Zakład przyjęty!", "success");
-        dom.betAmount.value = "";
-        dom.bettingForm.classList.add("hidden");
-        
-    } catch (err) {
-        console.error(err);
-        showMessage("Błąd: " + err.message, "error");
-    }
+        }
+        initialChatLoaded = true;
+    });
 }
-
-async function onCreatePvP(e) {
+async function onSendMessage(e) {
     e.preventDefault();
-    const amount = parseFloat(dom.pvpAmount.value);
-    if (isNaN(amount) || amount < 1000) return showMessage("Minimum 1000 zł!", "error");
-    try {
-        await runTransaction(db, async (t) => {
-            const userRef = doc(db, "uzytkownicy", currentUserId);
-            const userData = (await t.get(userRef)).data();
-            if (userData.cash < amount) throw new Error("Za mało gotówki!");
-            t.update(userRef, { cash: userData.cash - amount, totalValue: calculateTotalValue(userData.cash - amount, userData.shares) });
-            t.set(doc(collection(db, "pvp_duels")), { creatorId: currentUserId, creatorName: portfolio.name, creatorPrestige: portfolio.prestigeLevel || 0, amount: amount, status: "open", createdAt: serverTimestamp() });
-        });
-        showMessage("Wyzwanie rzucone!", "success");
-        await addDoc(collection(db, "chat_messages"), { text: `⚔️ PVP na ${formatujWalute(amount)}!`, authorName: "SYSTEM", authorId: "sys", prestigeLevel: 0, timestamp: serverTimestamp() });
-    } catch (e) { showMessage(e.message, "error"); }
+    if(isChatCooldown) return showMessage("Zwolnij!", "error");
+    const txt = dom.chatInput.value.trim();
+    if(!txt) return;
+    isChatCooldown = true;
+    await addDoc(collection(db, "chat_messages"), { text: txt, authorName: portfolio.name, authorId: currentUserId, prestigeLevel: portfolio.prestigeLevel, timestamp: serverTimestamp() });
+    dom.chatInput.value = "";
+    setTimeout(() => isChatCooldown = false, 15000);
 }
-
-function listenToPvP() {
-    unsubscribePvP = onSnapshot(query(collection(db, "pvp_duels"), where("status", "in", ["open", "battling"]), limit(20)), (snap) => {
-        dom.pvpFeed.innerHTML = "";
-        snap.forEach(doc => {
-            const d = doc.data();
-            if(d.status === 'battling' && !playedAnimations.has(doc.id)) { playedAnimations.add(doc.id); triggerGlobalPvPAnimation({id: doc.id, ...d}); }
-            const btn = d.creatorId === currentUserId ? `<button disabled>Twój</button>` : `<button onclick="joinPvP('${doc.id}', ${d.amount}, '${d.creatorName}')">WALCZ!</button>`;
-            dom.pvpFeed.innerHTML += `<div class="pvp-item"><span>${d.creatorName} (${formatujWalute(d.amount)})</span>${d.status==='battling'?'<span>WALKA...</span>':btn}</div>`;
+function listenToLeaderboard() {
+    unsubscribeLeaderboard = onSnapshot(query(collection(db, "uzytkownicy"), orderBy("totalValue", "desc"), limit(10)), snap => {
+        dom.leaderboardList.innerHTML = "";
+        let r = 1;
+        snap.forEach(d => {
+            const u = d.data();
+            const profitValue = u.totalValue - u.startValue;
+            let profitClass = profitValue < 0 ? "profit-minus" : "profit-plus";
+            let profitSign = profitValue < 0 ? "" : "+";
+            dom.leaderboardList.innerHTML += `
+                <li class="${d.id === currentUserId ? 'highlight-me' : ''}">
+                    <div class="leaderboard-left clickable-area" onclick="showUserProfile('${d.id}')">
+                        <div class="leaderboard-top-row">
+                            <span class="leaderboard-rank">${r}.</span>
+                            <span class="leaderboard-name">${u.name}</span>
+                            ${getPrestigeStars(u.prestigeLevel)}
+                        </div>
+                        <span class="leaderboard-profit ${profitClass}">Zysk: ${profitSign}${formatujWalute(profitValue)}</span>
+                    </div>
+                    <div class="leaderboard-total">${formatujWalute(u.totalValue)}</div>
+                </li>`;
+            r++;
         });
     });
 }
-const playedAnimations = new Set();
-const WINNER_INDEX = 60; const CARD_WIDTH = 120;
-function getSeededRandom(seedStr) { let h = 0x811c9dc5; for(let i=0;i<seedStr.length;i++) { h^=seedStr.charCodeAt(i); h=Math.imul(h,0x01000193); } return function() { h=Math.imul(h^(h>>>16),2246822507); h=Math.imul(h^(h>>>13),3266489909); return ((h>>>0)/4294967296); } }
-
-function triggerGlobalPvPAnimation(duel) {
-    const container = document.getElementById('pvp-embedded-roulette');
-    const strip = document.getElementById('roulette-strip');
-    const winnerText = document.getElementById('pvp-roulette-winner');
-    const rng = getSeededRandom(duel.id);
-    container.classList.remove('hidden');
-    strip.innerHTML = ""; strip.style.transition = "none"; strip.style.transform = "translateX(0px)"; winnerText.textContent = "LOSOWANIE...";
-    
-    const cardsData = [];
-    for (let i = 0; i < 90; i++) cardsData.push(i === WINNER_INDEX ? (duel.winner === duel.creatorName ? 'creator' : 'joiner') : (rng() > 0.5 ? 'creator' : 'joiner'));
-    
-    cardsData.forEach(type => {
-        const div = document.createElement('div');
-        div.className = `roulette-card ${type === 'creator' ? 'card-creator' : 'card-joiner'}`;
-        div.textContent = type === 'creator' ? duel.creatorName : duel.joinerName;
-        strip.appendChild(div);
-    });
-
-    const target = (WINNER_INDEX * CARD_WIDTH) + (CARD_WIDTH / 2) + (rng()-0.5)*(CARD_WIDTH*0.7);
-    const offset = (document.querySelector('.roulette-window').offsetWidth / 2) - target;
-    
-    setTimeout(() => {
-        strip.style.transition = "transform 5s cubic-bezier(0.15, 0.85, 0.35, 1.0)";
-        strip.style.transform = `translateX(${offset}px)`;
-        setTimeout(() => {
-            winnerText.textContent = `WYGRAŁ: ${duel.winner}`;
-            setTimeout(() => { container.classList.add('hidden'); if(currentUserId===duel.joinerId) updateDoc(doc(db,"pvp_duels",duel.id),{status:"closed"}); }, 5000);
-        }, 5000);
-    }, 100);
-}
-
-window.joinPvP = async function(duelId, amount, opponentName) {
-    if (!confirm(`Walczyć za ${formatujWalute(amount)}?`)) return;
-    try {
-        await runTransaction(db, async (t) => {
-            const duelRef = doc(db, "pvp_duels", duelId);
-            const joinerRef = doc(db, "uzytkownicy", currentUserId);
-            const duelDoc = await t.get(duelRef);
-            const joinerDoc = await t.get(joinerRef);
-            if (duelDoc.data().status !== "open") throw new Error("Za późno!");
-            if (joinerDoc.data().cash < amount) throw new Error("Brak środków!");
-            
-            const creatorRef = doc(db, "uzytkownicy", duelDoc.data().creatorId);
-            const creatorWins = Math.random() > 0.5;
-            const winnerAmount = amount * 2;
-            
-            t.update(joinerRef, { cash: joinerDoc.data().cash - amount });
-            if(creatorWins) {
-                 t.update(creatorRef, { cash: increment(winnerAmount), totalValue: increment(winnerAmount), zysk: increment(amount) });
-            } else {
-                 t.update(joinerRef, { cash: increment(winnerAmount), totalValue: increment(winnerAmount), zysk: increment(amount) });
-                 t.update(creatorRef, { zysk: increment(-amount) });
-            }
-            t.update(duelRef, { status: "battling", winner: creatorWins ? duelDoc.data().creatorName : portfolio.name, joinerId: currentUserId, joinerName: portfolio.name });
-        });
-    } catch(e) { showMessage(e.message, "error"); }
-};
-
-// --- RULETKA ---
-let isSpinning = false;
-let currentSelection = null;
-window.selectBetType = function(type, value) {
-    if(isSpinning) return;
-    currentSelection = { type, value };
-    document.querySelectorAll('.casino-btn, .num-btn').forEach(b => b.classList.remove('selected'));
-    if(type === 'color') document.querySelector(`.btn-${value}`).classList.add('selected');
-    else document.querySelector(`.num-${value}`).classList.add('selected');
-    dom.casinoStatus.textContent = `Wybrano: ${value}`;
-};
-
-window.commitSpin = async function() {
-    if(isSpinning || !currentSelection) return;
-    const amount = parseInt(dom.casinoAmount.value);
-    if(isNaN(amount) || amount > portfolio.cash) return showMessage("Błąd kwoty", "error");
-    
-    isSpinning = true;
-    const winningNumber = Math.floor(Math.random() * 37);
-    const redNumbers = [32, 19, 21, 25, 34, 27, 36, 30, 23, 5, 16, 1, 14, 9, 18, 7, 12, 3];
-    let resultColor = winningNumber === 0 ? 'green' : (redNumbers.includes(winningNumber) ? 'red' : 'black');
-    
-    // Prosta animacja UI
-    dom.casinoStatus.textContent = `WYNIK: ${winningNumber} (${resultColor.toUpperCase()})`;
-    
-    let multiplier = 0;
-    if(currentSelection.type === 'color' && currentSelection.value === resultColor) multiplier = resultColor === 'green' ? 36 : 2;
-    if(currentSelection.type === 'number' && parseInt(currentSelection.value) === winningNumber) multiplier = 36;
-    
-    try {
-        await runTransaction(db, async (t) => {
-            const ref = doc(db, "uzytkownicy", currentUserId);
-            const d = (await t.get(ref)).data();
-            let cash = d.cash - amount;
-            if(multiplier > 0) cash += amount * multiplier;
-            t.update(ref, { cash: cash, totalValue: calculateTotalValue(cash, d.shares) });
-        });
-        if(multiplier > 0) showMessage("Wygrana!", "success");
-        else showMessage("Przegrana", "error");
-    } catch(e) {}
-    isSpinning = false;
-};
-
-// --- HISTORIA I PROFILE ---
 function listenToGlobalHistory() { unsubscribeGlobalHistory = onSnapshot(query(collection(db, "historia_transakcji"), orderBy("timestamp", "desc"), limit(15)), snap => { dom.globalHistoryFeed.innerHTML=""; snap.forEach(d => displayHistoryItem(dom.globalHistoryFeed, d.data(), true)); }); }
 function listenToPersonalHistory(uid) { unsubscribePersonalHistory = onSnapshot(query(collection(db, "historia_transakcji"), where("userId","==",uid), orderBy("timestamp", "desc"), limit(15)), snap => { dom.personalHistoryFeed.innerHTML=""; snap.forEach(d => displayHistoryItem(dom.personalHistoryFeed, d.data(), false)); }); }
 
 function displayHistoryItem(feed, item, isGlobal) {
     const p = document.createElement("p");
-    const userPart = isGlobal ? `<span onclick="showUserProfile('${item.userId}')">${item.userName}</span> ` : "";
-    p.innerHTML = `${userPart}<span>${item.type}</span> <span>${item.companyName}</span> <span>${formatujWalute(item.totalValue)}</span>`;
+    const userPart = isGlobal ? `<span class="h-user clickable-user" onclick="showUserProfile('${item.userId}')">${item.userName}${getPrestigeStars(item.prestigeLevel)}</span> ` : "";
+    let typeCls = item.type==="KUPNO"?"h-action-buy":(item.type==="SPRZEDAŻ"?"h-action-sell":"h-total");
+    if(item.type.includes("Krypto")) typeCls = item.type.includes("KUPNO") ? "l-type-buy-crypto" : "l-type-sell-crypto";
+    p.innerHTML = `${userPart}<span class="${typeCls}">${item.type}</span> <span class="h-details">${item.companyName}</span> <span class="h-total">${formatujWalute(item.totalValue)}</span>`;
     feed.prepend(p);
 }
 
@@ -1159,48 +960,337 @@ window.showUserProfile = async function(uid) {
     dom.modalTotalValue.textContent = formatujWalute(d.totalValue);
     dom.modalCash.textContent = formatujWalute(d.cash);
     dom.modalPrestigeLevel.textContent = d.prestigeLevel;
+    dom.modalTotalTrades.textContent = d.stats?.totalTrades || 0;
+    dom.modalTipsPurchased.textContent = d.stats?.tipsPurchased || 0;
+    dom.modalBondsPurchased.textContent = d.stats?.bondsPurchased || 0;
     
+    const s = [d.cash]; const l = ['Gotówka'];
     let sharesHtml = "";
-    COMPANY_ORDER.forEach(cid => { if((d.shares[cid]||0)>0) sharesHtml += `<p>${market[cid].name}: ${d.shares[cid]}</p>`; });
-    dom.modalSharesList.innerHTML = sharesHtml || "<p>Brak aktywów</p>";
+    COMPANY_ORDER.forEach(cid => {
+        const amt = d.shares[cid]||0;
+        if(amt>0) {
+            const val = amt*(market[cid]?.price||0);
+            s.push(val); l.push(market[cid]?.name||cid);
+            sharesHtml += `<p>${market[cid]?.name||cid}: <strong>${amt}</strong></p>`;
+        }
+    });
+    dom.modalSharesList.innerHTML = sharesHtml || "<p>Brak akcji</p>";
     
-    dom.modalOverlay.classList.remove("hidden");
+    if(!modalPortfolioChart) modalPortfolioChart = new ApexCharts(dom.modalPortfolioChartContainer, { series: s, labels: l, chart: { type: 'donut', height: 250 }, theme: { mode: document.body.getAttribute('data-theme')==='light'?'light':'dark' }});
+    else modalPortfolioChart.updateOptions({ series: s, labels: l });
+    modalPortfolioChart.render();
+    
     if(uid === currentUserId) {
-        dom.prestigeButton.disabled = d.totalValue < PRESTIGE_REQUIREMENTS[d.prestigeLevel||0];
-        dom.prestigeNextGoal.textContent = `Cel: ${formatujWalute(PRESTIGE_REQUIREMENTS[d.prestigeLevel||0])}`;
+        dom.prestigeInfo.style.display = 'flex'; dom.prestigeButton.style.display = 'block';
+        updatePrestigeButton(d.totalValue, d.prestigeLevel||0);
+    } else {
+        dom.prestigeInfo.style.display = 'none'; dom.prestigeButton.style.display = 'none';
     }
+    dom.modalOverlay.classList.remove("hidden");
 };
 
+function updatePrestigeButton(val, lvl) {
+    if(lvl >= PRESTIGE_REQUIREMENTS.length) {
+        dom.prestigeButton.textContent = "Max Poziom"; dom.prestigeButton.disabled = true;
+    } else {
+        const req = PRESTIGE_REQUIREMENTS[lvl];
+        dom.prestigeNextGoal.textContent = `Cel: ${formatujWalute(req)}`;
+        dom.prestigeButton.textContent = val >= req ? `Awansuj na poziom ${lvl+1}` : `Brakuje ${formatujWalute(req-val)}`;
+        dom.prestigeButton.disabled = val < req;
+    }
+}
 async function onPrestigeReset() {
-    if(!confirm("Resetujesz konto dla Prestiżu?")) return;
+    if(!confirm("Resetujesz portfel do 1000 zł w zamian za prestiż. Kontynuować?")) return;
     try {
         await runTransaction(db, async t => {
             const ref = doc(db, "uzytkownicy", currentUserId);
             const d = (await t.get(ref)).data();
-            t.update(ref, { 
-                cash: 1000, 
-                shares: {ulanska:0,rychbud:0,brzozair:0,cosmosanit:0,nicorp:0,igirium:0},
-                startValue: 1000, zysk: 0, totalValue: 1000, 
-                prestigeLevel: (d.prestigeLevel||0)+1 
-            });
+            t.update(ref, { cash: 1000, shares: {ulanska:0,rychbud:0,brzozair:0,cosmosanit:0,bartcoin:0,igirium:0}, startValue: 1000, zysk: 0, totalValue: 1000, prestigeLevel: (d.prestigeLevel||0)+1 });
         });
-        dom.modalOverlay.classList.add("hidden");
-    } catch(e) {}
+        showMessage("Awans prestiżu!", "success"); dom.modalOverlay.classList.add("hidden");
+    } catch(e) { showMessage(e.message, "error"); }
 }
 
+function calculateTotalValue(cash, shares) {
+    let val = cash;
+    for(let cid in shares) if(market[cid]) val += shares[cid] * market[cid].price;
+    return val;
+}
+function onSelectMarketType(e) {
+    const type = e.target.dataset.marketType;
+    dom.marketTypeTabs.forEach(t => t.classList.toggle("active", t.dataset.marketType === type));
+    dom.companySelector.classList.toggle("hidden", type !== 'stocks');
+    dom.cryptoSelector.classList.toggle("hidden", type !== 'crypto');
+    changeCompany(type === 'stocks' ? 'ulanska' : 'bartcoin');
+}
+function onSelectOrderTab(e) {
+    const t = e.target.dataset.orderType;
+    dom.orderTabMarket.classList.toggle("active", t === 'market');
+    dom.orderTabLimit.classList.toggle("active", t === 'limit');
+    dom.orderMarketContainer.classList.toggle("active", t === 'market');
+    dom.orderLimitContainer.classList.toggle("active", t === 'limit');
+}
+function onSelectHistoryTab(e) {
+    const t = e.target.dataset.tab;
+    dom.historyTabButtons.forEach(b => b.classList.toggle("active", b.dataset.tab === t));
+    document.querySelectorAll(".tab-content").forEach(c => c.classList.toggle("active", c.id === `tab-${t}`));
+}
 async function onBuyTip() {
     const cost = TIP_COSTS[portfolio.prestigeLevel];
     if(portfolio.cash < cost) return showMessage("Brak środków", "error");
-    if(!confirm("Kupić info?")) return;
+    if(!confirm("Kupić wskazówkę?")) return;
     const isReal = Math.random() < 0.65;
     const cid = COMPANY_ORDER[Math.floor(Math.random()*COMPANY_ORDER.length)];
+    const isPos = Math.random() > 0.5;
     try {
         await runTransaction(db, async t => {
             const ref = doc(db, "uzytkownicy", currentUserId);
             const d = (await t.get(ref)).data();
-            t.update(ref, { cash: d.cash-cost });
-            if(isReal) t.set(doc(collection(db, "pending_tips")), { userId: currentUserId, companyId: cid, impactType: Math.random()>0.5?'positive':'negative', executeAt: Timestamp.fromMillis(Date.now()+Math.random()*600000) });
+            t.update(ref, { cash: d.cash-cost, 'stats.tipsPurchased': increment(1) });
+            if(isReal) t.set(doc(collection(db, "pending_tips")), { userId: currentUserId, companyId: cid, impactType: isPos?'positive':'negative', executeAt: Timestamp.fromMillis(Date.now()+Math.random()*600000) });
         });
-        showNotification(`Info o ${market[cid].name} kupione!`, 'tip');
-    } catch(e) {}
+        showNotification(`[${isReal?'PRAWDZIWE INFO':'FAŁSZYWKA'}] ${market[cid].name} może ${isPos?'wzrosnąć':'spaść'}...`, 'tip');
+    } catch(e) { showMessage("Błąd", "error"); }
 }
+
+let isSpinning = false;
+let currentSelection = null;
+window.selectBetType = function(type, value) {
+    if(isSpinning) return;
+    currentSelection = { type, value };
+    document.querySelectorAll('.casino-btn, .num-btn').forEach(b => b.classList.remove('selected'));
+    if(type === 'color') {
+        const btn = document.querySelector(`.btn-${value}`);
+        if(btn) btn.classList.add('selected');
+        dom.casinoStatus.textContent = `Wybrano: ${value === 'red' ? 'Czerwone' : (value === 'black' ? 'Czarne' : 'Zero')}`;
+    } else {
+        const btn = document.querySelector(`.num-btn.num-${value}`) || Array.from(document.querySelectorAll('.num-btn')).find(b => b.textContent == value);
+        if(btn) btn.classList.add('selected');
+        dom.casinoStatus.textContent = `Wybrano liczbę: ${value}`;
+    }
+};
+
+window.commitSpin = async function() {
+    if (isSpinning) return;
+    if (!currentUserId) return showMessage("Zaloguj się!", "error");
+    if (!currentSelection) return showMessage("Wybierz stawkę!", "error");
+
+    const amount = parseInt(dom.casinoAmount.value);
+    if (isNaN(amount) || amount <= 0) return showMessage("Podaj kwotę!", "error");
+    if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
+
+    isSpinning = true;
+    dom.casinoStatus.textContent = "Kręcimy... Powodzenia!";
+    
+    const allBtns = document.querySelectorAll('.casino-btn, .num-btn, .spin-btn');
+    allBtns.forEach(b => b.disabled = true);
+    dom.amountInput.disabled = true;
+
+    const innerRing = document.querySelector('.inner');
+    const dataContainer = document.querySelector('.data');
+    const resultNumberEl = document.querySelector('.result-number');
+    const resultColorEl = document.querySelector('.result-color');
+    const resultBg = document.querySelector('.result');
+
+    innerRing.removeAttribute('data-spinto');
+    innerRing.classList.remove('rest');
+    dataContainer.classList.remove('reveal');
+
+    const winningNumber = Math.floor(Math.random() * 37);
+    const redNumbers = [32, 19, 21, 25, 34, 27, 36, 30, 23, 5, 16, 1, 14, 9, 18, 7, 12, 3];
+    let resultColor = 'black';
+    if (winningNumber === 0) resultColor = 'green';
+    else if (redNumbers.includes(winningNumber)) resultColor = 'red';
+
+    setTimeout(() => { innerRing.setAttribute('data-spinto', winningNumber); }, 50);
+
+    try {
+        await new Promise(r => setTimeout(r, 6000));
+
+        innerRing.classList.add('rest');
+        resultNumberEl.textContent = winningNumber;
+        resultColorEl.textContent = resultColor === 'red' ? 'CZERWONE' : (resultColor === 'black' ? 'CZARNE' : 'ZIELONE');
+        resultBg.style.backgroundColor = resultColor === 'red' ? 'var(--red)' : (resultColor === 'green' ? 'var(--green)' : '#111');
+        dataContainer.classList.add('reveal');
+
+        const historyList = document.getElementById('previous-list');
+        const li = document.createElement('li');
+        li.className = `previous-result color-${resultColor}`;
+        li.textContent = winningNumber;
+        historyList.prepend(li);
+        if(historyList.children.length > 12) historyList.lastChild.remove();
+
+        let multiplier = 0;
+        if (currentSelection.type === 'color') {
+            if (currentSelection.value === resultColor) {
+                if (resultColor === 'green') multiplier = 36;
+                else multiplier = 2;
+            }
+        } else if (currentSelection.type === 'number') {
+            if (parseInt(currentSelection.value) === winningNumber) multiplier = 36;
+        }
+
+        await runTransaction(db, async (t) => {
+            const userRef = doc(db, "uzytkownicy", currentUserId);
+            const d = (await t.get(userRef)).data();
+            if (d.cash < amount) throw new Error("Brak środków");
+            let newCash = d.cash;
+            let newProfit = d.zysk;
+            if (multiplier > 0) {
+                const winVal = amount * multiplier;
+                newCash = newCash - amount + winVal;
+                newProfit += (winVal - amount);
+            } else {
+                newCash -= amount;
+                newProfit -= amount;
+            }
+            t.update(userRef, { cash: newCash, zysk: newProfit, totalValue: calculateTotalValue(newCash, d.shares) });
+        });
+
+        if (multiplier > 0) {
+            const winText = formatujWalute(amount * multiplier);
+            dom.casinoStatus.innerHTML = `<span style="color:var(--green)">WYGRANA! ${winText}</span>`;
+            showNotification(`Wygrałeś ${winText} w ruletce!`, 'news', 'positive');
+            dom.audioKaching.play().catch(()=>{});
+        } else {
+            dom.casinoStatus.innerHTML = `<span style="color:var(--red)">Przegrana... -${formatujWalute(amount)}</span>`;
+            dom.audioError.play().catch(()=>{});
+        }
+    } catch (e) { showMessage("Błąd: " + e.message, "error"); } 
+    finally {
+        isSpinning = false;
+        allBtns.forEach(b => b.disabled = false);
+        dom.amountInput.disabled = false;
+    }
+};
+
+const playedAnimations = new Set();
+const WINNER_INDEX = 60; const CARD_WIDTH = 120;
+function getSeededRandom(seedStr) { let h = 0x811c9dc5; for(let i=0;i<seedStr.length;i++) { h^=seedStr.charCodeAt(i); h=Math.imul(h,0x01000193); } return function() { h=Math.imul(h^(h>>>16),2246822507); h=Math.imul(h^(h>>>13),3266489909); return ((h>>>0)/4294967296); } }
+
+function listenToPvP() {
+    const q = query(collection(db, "pvp_duels"), where("status", "in", ["open", "battling"]), limit(20));
+    unsubscribePvP = onSnapshot(q, (snap) => {
+        dom.pvpFeed.innerHTML = "";
+        let duels = [];
+        snap.forEach(doc => duels.push({ id: doc.id, ...doc.data() }));
+        duels.sort((a, b) => b.createdAt - a.createdAt);
+        if (duels.length === 0) { dom.pvpFeed.innerHTML = "<p>Arena jest pusta. Stwórz wyzwanie!</p>"; return; }
+        duels.forEach(duel => {
+            if (duel.status === 'battling' && !playedAnimations.has(duel.id)) {
+                playedAnimations.add(duel.id);
+                triggerGlobalPvPAnimation(duel); 
+            }
+            const isMyDuel = duel.creatorId === currentUserId;
+            const div = document.createElement("div");
+            div.className = "pvp-item";
+            let btnHtml = "";
+            if (duel.status === 'battling') {
+                div.classList.add('battling');
+                btnHtml = `<span class="pvp-status-battling">🎰 LOSOWANIE...</span>`;
+            } else if (isMyDuel) {
+                btnHtml = `<button class="pvp-join-btn" disabled style="background:#555; cursor:default;">Twoje</button>`;
+            } else {
+                btnHtml = `<button class="pvp-join-btn" onclick="joinPvP('${duel.id}', ${duel.amount}, '${duel.creatorName}')">WALCZ!</button>`;
+            }
+            div.innerHTML = `<div class="pvp-info"><strong>${formatujWalute(duel.amount)}</strong><span>vs ${duel.creatorName} ${getPrestigeStars(duel.creatorPrestige || 0)}</span></div><div>${btnHtml}</div>`;
+            dom.pvpFeed.appendChild(div);
+        });
+    });
+}
+
+async function onCreatePvP(e) {
+    e.preventDefault();
+    const amount = parseFloat(dom.pvpAmount.value);
+    if (isNaN(amount) || amount < 1000) return showMessage("Minimum 1000 zł!", "error");
+    if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
+    try {
+        await runTransaction(db, async (t) => {
+            const userRef = doc(db, "uzytkownicy", currentUserId);
+            const userData = (await t.get(userRef)).data();
+            if (userData.cash < amount) throw new Error("Za mało gotówki!");
+            t.update(userRef, { cash: userData.cash - amount, totalValue: calculateTotalValue(userData.cash - amount, userData.shares) });
+            const duelRef = doc(collection(db, "pvp_duels"));
+            t.set(duelRef, { creatorId: currentUserId, creatorName: portfolio.name, creatorPrestige: portfolio.prestigeLevel || 0, amount: amount, status: "open", createdAt: serverTimestamp() });
+        });
+        showMessage("Wyzwanie rzucone!", "success");
+        dom.pvpAmount.value = "";
+        await addDoc(collection(db, "chat_messages"), { text: `⚔️ Stworzyłem wyzwanie PvP na ${formatujWalute(amount)}!`, authorName: "SYSTEM", authorId: "sys", prestigeLevel: 0, timestamp: serverTimestamp() });
+    } catch (e) { showMessage("Błąd: " + e.message, "error"); }
+}
+
+window.joinPvP = async function(duelId, amount, opponentName) {
+    if (!confirm(`Walczysz o ${formatujWalute(amount)}?`)) return;
+    if (portfolio.cash < amount) return showMessage("Nie stać Cię!", "error");
+    try {
+        let winnerName = "";
+        let winnerAmount = amount * 2; 
+        await runTransaction(db, async (t) => {
+            const duelRef = doc(db, "pvp_duels", duelId);
+            const joinerRef = doc(db, "uzytkownicy", currentUserId);
+            const duelDoc = await t.get(duelRef);
+            const joinerDoc = await t.get(joinerRef);
+            if (!duelDoc.exists() || duelDoc.data().status !== "open") throw new Error("Nieaktualne!");
+            if (joinerDoc.data().cash < amount) throw new Error("Brak środków!");
+            const creatorRef = doc(db, "uzytkownicy", duelDoc.data().creatorId);
+            const creatorWins = Math.random() > 0.5;
+            let joinerCash = joinerDoc.data().cash - amount;
+            if (creatorWins) {
+                winnerName = duelDoc.data().creatorName;
+                t.update(creatorRef, { cash: increment(winnerAmount), totalValue: increment(winnerAmount), zysk: increment(amount) });
+                t.update(joinerRef, { cash: joinerCash, totalValue: calculateTotalValue(joinerCash, joinerDoc.data().shares), zysk: increment(-amount) });
+            } else {
+                winnerName = portfolio.name;
+                joinerCash += winnerAmount;
+                t.update(joinerRef, { cash: joinerCash, totalValue: calculateTotalValue(joinerCash, joinerDoc.data().shares), zysk: increment(amount) });
+                t.update(creatorRef, { zysk: increment(-amount) });
+            }
+            t.update(duelRef, { status: "battling", winner: winnerName, joinerId: currentUserId, joinerName: portfolio.name });
+        });
+        await addDoc(collection(db, "chat_messages"), { text: `⚔️ PVP: ${portfolio.name} przyjął wyzwanie! Losowanie...`, authorName: "SĘDZIA", authorId: "sys", prestigeLevel: 0, timestamp: serverTimestamp() });
+    } catch (e) { showMessage("Błąd: " + e.message, "error"); }
+};
+
+function triggerGlobalPvPAnimation(duel) {
+    const container = document.getElementById('pvp-embedded-roulette');
+    const strip = document.getElementById('roulette-strip');
+    const winnerText = document.getElementById('pvp-roulette-winner');
+    const title = document.getElementById('pvp-vs-title');
+    const rng = getSeededRandom(duel.id);
+    container.classList.remove('hidden');
+    strip.innerHTML = ""; strip.style.transition = "none"; strip.style.transform = "translateX(0px)"; winnerText.textContent = "LOSOWANIE...";
+    title.innerHTML = `<span style="color:var(--blue)">${duel.creatorName}</span> vs <span style="color:var(--red)">${duel.joinerName}</span>`;
+    const totalCards = 90; const cardsData = [];
+    for (let i = 0; i < totalCards; i++) {
+        if (i === WINNER_INDEX) cardsData.push(duel.winner === duel.creatorName ? 'creator' : 'joiner');
+        else cardsData.push(rng() > 0.5 ? 'creator' : 'joiner');
+    }
+    cardsData.forEach(type => {
+        const div = document.createElement('div');
+        const isCreator = type === 'creator';
+        div.className = `roulette-card ${isCreator ? 'card-creator' : 'card-joiner'}`;
+        const name = isCreator ? duel.creatorName : duel.joinerName;
+        const icon = isCreator ? '🔵' : '🔴';
+        div.innerHTML = `<div class="card-icon">${icon}</div><div>${name}</div>`;
+        strip.appendChild(div);
+    });
+    const windowWidth = document.querySelector('.roulette-window.embedded').offsetWidth;
+    const winnerCenterPosition = (WINNER_INDEX * CARD_WIDTH) + (CARD_WIDTH / 2);
+    const randomOffset = (rng() - 0.5) * (CARD_WIDTH * 0.7);
+    const targetTranslate = (windowWidth / 2) - (winnerCenterPosition + randomOffset);
+    setTimeout(() => {
+        strip.style.transition = "transform 5s cubic-bezier(0.15, 0.85, 0.35, 1.0)";
+        strip.style.transform = `translateX(${targetTranslate}px)`;
+        setTimeout(() => {
+            if (duel.winner === portfolio.name) {
+                winnerText.textContent = "WYGRAŁEŚ!"; winnerText.style.color = "var(--green)"; dom.audioKaching.play().catch(()=>{});
+            } else {
+                winnerText.textContent = `WYGRAŁ: ${duel.winner}`; winnerText.style.color = (duel.winner === duel.creatorName) ? "var(--blue)" : "var(--red)";
+                if(currentUserId === duel.creatorId || currentUserId === duel.joinerId) if(duel.winner !== portfolio.name) dom.audioError.play().catch(()=>{});
+            }
+            winnerText.classList.add('animate-winner-text');
+            setTimeout(() => { container.classList.add('hidden'); if (currentUserId === duel.joinerId) closeDuelInDb(duel.id); }, 5000);
+        }, 5000);
+    }, 100);
+}
+async function closeDuelInDb(duelId) { try { await updateDoc(doc(db, "pvp_duels", duelId), { status: "closed" }); } catch(e) {} }
