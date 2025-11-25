@@ -8,8 +8,8 @@
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script type="module" src="script.js"></script>
     <link rel="icon" type="image/png" href="favicon.png">
-    <script src="https://www.youtube.com/iframe_api"></script> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://www.youtube.com/iframe_api"></script> 
 </head>
 <body>
 
@@ -27,7 +27,6 @@
                 <input type="password" id="login-password" required>
                 <button type="submit">Wejdź do gry</button>
             </form>
-            <a href="#" id="reset-password-link">Nie pamiętasz hasła?</a>
             <p class="auth-toggle">Nie masz konta? <a href="#" id="show-register-link">Zarejestruj się</a></p>
         </div>
 
@@ -52,16 +51,10 @@
         <header>
             <div class="header-left">
                 <h1>WIG UŁAŃSKA</h1>
-                <div id="theme-switcher">
-                    <select id="theme-select">
-                        <option value="dark">Dark Modern</option>
-                        <option value="light">Light</option>
-                    </select>
-                </div>
             </div>
             <div id="user-info">
                 <span id="username">Gracz</span>
-                <button id="logout-button"><i class="fas fa-power-off"></i></button>
+                <button id="logout-button" title="Wyloguj"><i class="fas fa-power-off"></i></button>
             </div>
         </header>
 
@@ -72,12 +65,30 @@
         </div>
 
         <nav id="main-nav">
-            <button class="nav-btn active" data-view="market"><i class="fas fa-chart-line"></i> Giełda & Ranking</button>
-            <button class="nav-btn" data-view="fun"><i class="fas fa-dice"></i> Rozrywka & Portfel</button>
-            <button class="nav-btn" data-view="info"><i class="fas fa-info-circle"></i> Info & Zasady</button>
+            <button class="nav-btn active" data-view="market"><i class="fas fa-chart-line"></i> Giełda & Info</button>
+            <button class="nav-btn" data-view="fun"><i class="fas fa-dice"></i> Rozrywka</button>
+            <button class="nav-btn" data-view="rules"><i class="fas fa-book"></i> Zasady</button>
         </nav>
 
         <div id="view-market" class="view-section active">
+            
+            <section class="panel wallet-summary-panel">
+                <div class="wallet-flex">
+                    <div class="wallet-item">
+                        <span>Gotówka</span>
+                        <strong id="cash-display" class="highlight-val">...</strong>
+                    </div>
+                    <div class="wallet-item">
+                        <span>Wartość</span>
+                        <strong id="value-display">...</strong>
+                    </div>
+                    <div class="wallet-item">
+                        <span>Zysk</span>
+                        <strong id="profit-display">...</strong>
+                    </div>
+                </div>
+            </section>
+
             <div class="market-grid">
                 <main id="market-panel" class="panel">
                     <div class="market-type-selector">
@@ -104,261 +115,214 @@
                     <div id="chart-container"></div>
                 </main>
 
-                <aside id="order-panel" class="panel">
-                    <h2>Zlecenia</h2>
-                    <div class="crypto-gate-message">
-                        <h3>Blokada Krypto</h3>
-                        <p>Wymagany poziom Prestiżu 3 (⭐️⭐️⭐️)</p>
-                    </div>
+                <aside class="sidebar-column">
+                    <div id="order-panel" class="panel">
+                        <h2>Zlecenia</h2>
+                        
+                        <div class="crypto-gate-message">
+                            <h3>Blokada Krypto</h3>
+                            <p>Wymagany poziom Prestiżu 3 (⭐️⭐️⭐️)</p>
+                        </div>
 
-                    <div class="order-tabs">
-                        <button class="order-tab-btn active" data-order-type="market">Rynkowe</button>
-                        <button class="order-tab-btn" data-order-type="limit">Limit</button>
-                    </div>
+                        <div class="order-tabs">
+                            <button class="order-tab-btn active" data-order-type="market">Rynkowe</button>
+                            <button class="order-tab-btn" data-order-type="limit">Limit</button>
+                        </div>
 
-                    <div id="order-market-container" class="order-container active">
-                        <div class="actions">
-                            <div class="label-with-max">
+                        <div id="order-market-container" class="order-container active">
+                            <div class="actions">
                                 <label>Ilość:</label>
-                                <span class="max-buttons-group">
+                                <input type="number" id="amount-input" placeholder="0" min="1">
+                                <div class="max-buttons-group">
                                     <button type="button" id="buy-max-button" class="max-btn">MAX KUP</button>
                                     <button type="button" id="sell-max-button" class="max-btn">MAX SPRZ</button>
-                                </span>
-                            </div>
-                            <input type="number" id="amount-input" placeholder="0" min="1">
-                            <div class="trade-buttons">
-                                <button id="buy-button">KUP</button>
-                                <button id="sell-button">SPRZEDAJ</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="order-limit-container" class="order-container">
-                        <form id="limit-order-form">
-                            <select id="limit-type">
-                                <option value="buy">Kupno (Limit)</option>
-                                <option value="sell">Sprzedaż (Limit)</option>
-                            </select>
-                            <input type="number" id="limit-amount" placeholder="Ilość" min="1" required>
-                            <input type="number" id="limit-price" placeholder="Cena (zł)" min="0.01" step="0.01" required>
-                            <button type="submit" id="limit-order-button" class="action-btn-full">Wystaw zlecenie</button>
-                        </form>
-                    </div>
-                    <p id="message-box"></p>
-                </aside>
-
-                <section id="leaderboard-panel" class="panel">
-                    <h2>Ranking Graczy (TOP 10)</h2>
-                    <ol id="leaderboard-list">
-                        <li>Ładowanie...</li>
-                    </ol>
-                </section>
-            </div>
-        </div>
-
-        <div id="view-fun" class="view-section">
-            
-            <section class="panel wallet-summary-panel">
-                <div class="wallet-flex">
-                    <div class="wallet-item">
-                        <span>Gotówka:</span>
-                        <strong id="cash-display-fun" class="highlight-val">0.00 zł</strong>
-                    </div>
-                    <div class="wallet-item">
-                        <span>Wartość:</span>
-                        <strong id="value-display-fun">0.00 zł</strong>
-                    </div>
-                    <div class="wallet-item">
-                        <span>Zysk:</span>
-                        <strong id="profit-display-fun">0.00 zł</strong>
-                    </div>
-                </div>
-            </section>
-
-            <div class="fun-grid">
-                <aside id="portfolio-panel" class="panel">
-                    <h2>Twój Portfel</h2>
-                    <div id="portfolio-chart-container"></div> 
-                    
-                    <p class="hidden">Gotówka: <strong id="cash">100.00</strong> zł</p> 
-                    <p class="hidden">Wartość: <strong id="total-value">100.00</strong> zł</p>
-                    <p class="hidden">Zysk: <strong id="total-profit">0.00</strong> zł</p>
-
-                    <hr>
-                    <div id="shares-list">
-                        </div>
-                </aside>
-
-                <section id="casino-panel" class="panel">
-                    <h2>🎰 Ruletka</h2>
-                    <div class="casino-wrapper">
-                        <div class="main-roulette">
-                            <div class="plate" id="plate">
-                                <ul class="inner">
-                                    </ul>
-                                <div class="data">
-                                    <div class="data-inner">
-                                        <div class="mask">Zakręć</div>
-                                        <div class="result">
-                                            <div class="result-number">--</div>
-                                            <div class="result-color">--</div>
-                                        </div>
-                                    </div>
+                                </div>
+                                <div class="trade-buttons">
+                                    <button id="buy-button">KUP</button>
+                                    <button id="sell-button">SPRZEDAJ</button>
                                 </div>
                             </div>
                         </div>
-                        <div class="casino-controls">
-                            <p id="casino-status">Wybierz stawkę!</p>
-                            <div class="bet-row">
-                                <input type="number" id="casino-amount" class="dark-input" placeholder="Kwota" value="100">
-                            </div>
-                            <div class="bet-row">
-                                <button class="casino-btn btn-red" onclick="selectBetType('color', 'red')">🔴</button>
-                                <button class="casino-btn btn-black" onclick="selectBetType('color', 'black')">⚫</button>
-                                <button class="casino-btn btn-green" onclick="selectBetType('color', 'green')">🟢</button>
-                            </div>
-                            <div class="bet-numbers-grid">
-                                <button class="num-btn num-0" onclick="selectBetType('number', 0)">0</button>
-                                <script>
-                                    const reds = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
-                                    for(let i=1; i<=36; i++) {
-                                        let c = reds.includes(i) ? 'num-red' : 'num-black';
-                                        document.write(`<button class="num-btn ${c}" onclick="selectBetType('number', ${i})">${i}</button>`);
-                                    }
-                                </script>
-                            </div>
-                            <button id="spin-button" class="action-btn-full spin-btn" onclick="commitSpin()">GRAJ</button>
+
+                        <div id="order-limit-container" class="order-container">
+                            <form id="limit-order-form">
+                                <select id="limit-type">
+                                    <option value="buy">Kupno (Limit)</option>
+                                    <option value="sell">Sprzedaż (Limit)</option>
+                                </select>
+                                <input type="number" id="limit-amount" placeholder="Ilość" min="1" required>
+                                <input type="number" id="limit-price" placeholder="Cena (zł)" min="0.01" step="0.01" required>
+                                <button type="submit" id="limit-order-button" class="action-btn-full">Wystaw zlecenie</button>
+                            </form>
                         </div>
-                        <div class="previous-results"><ol class="previous-list" id="previous-list"></ol></div>
                     </div>
-                </section>
 
-                <section id="betting-panel" class="panel">
-                    <h2>⚽ Zakłady</h2>
-                    <div id="match-info"><p>Ładowanie...</p></div>
-                    <form id="betting-form" class="hidden">
-                        <input type="number" id="bet-amount" placeholder="Stawka" class="dark-input">
-                        <button type="submit" id="place-bet-button" class="action-btn-full">Postaw</button>
-                    </form>
-                    <hr>
-                    <h3>Twoje kupony</h3>
-                    <div id="active-bets-feed" class="feed-box"></div>
-                </section>
-
-                <section id="pvp-panel" class="panel">
-                    <h2>⚔️ PvP (50/50)</h2>
-                    <form id="pvp-create-form">
-                        <div class="pvp-controls">
-                            <input type="number" id="pvp-amount" placeholder="Stawka (min 10k)" class="dark-input">
-                            <button type="submit" class="action-btn-full">STWÓRZ</button>
+                    <div id="portfolio-list-panel" class="panel">
+                        <h2>Twoje Aktywa</h2>
+                        <div id="shares-list">
+                            <p>Ładowanie...</p>
                         </div>
-                    </form>
-                    <div id="pvp-feed" class="feed-box"></div>
-                </section>
-
-                <section id="radio-panel" class="panel">
-                    <h2>🎧 Radio</h2>
-                    <div class="video-container">
-                        <iframe width="100%" height="200" src="https://www.youtube.com/embed/N2iGDpu-3ZI?si=9cOCpOaC0hfUCehx" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
                     </div>
-                </section>
+                </aside>
             </div>
-        </div>
 
-        <div id="view-info" class="view-section">
             <div class="info-grid">
                 
-                <section id="tournament-panel" class="panel highlight-panel">
-                    <h2>🏆 WIELKI TURNIEJ</h2>
-                    <div class="tourney-content">
-                        <p><strong>Start:</strong> 26 Listopada 2025, 15:30</p>
-                        <ul>
-                            <li>🥇 1. miejsce: 50,000 PLN</li>
-                            <li>🥈 2. miejsce: 30,000 PLN</li>
-                            <li>🥉 3. miejsce: 20,000 PLN</li>
-                        </ul>
-                        <p>Gra: Geoguessr. Wygrana przechodzi na sezon 2.</p>
-                    </div>
-                </section>
-
-                <section id="help-panel" class="panel">
-                    <h2>Zasady & Prestiż</h2>
-                    <div class="help-content">
-                        <p><strong>Prestiż:</strong> Kupuj plotki i odblokuj krypto.</p>
-                        <ul>
-                            <li>⭐️ Poziom 1: 15k</li>
-                            <li>⭐️⭐️ Poziom 2: 30k</li>
-                            <li>⭐️⭐️⭐️ Poziom 3: 60k (Odblokowuje NiCorp & Igirium)</li>
-                        </ul>
-                        <p><strong>Plotki:</strong> Kosztują, ale dają przewagę (65% szansy).</p>
-                    </div>
-                </section>
-
                 <section id="rumors-panel" class="panel">
-                    <h2>📰 Plotki & Newsy</h2>
-                    <div id="news-feed" class="feed-box small-feed"></div>
+                    <h2>📰 Wiadomości i Plotki</h2>
+                    <div id="news-feed" class="feed-box small-feed">
+                        <p>Brak nowych wiadomości...</p>
+                    </div>
                     <hr>
                     <form id="rumor-form">
-                        <input type="text" id="rumor-input" placeholder="Puść plotkę..." required>
+                        <input type="text" id="rumor-input" placeholder="Napisz plotkę..." required>
                         <div class="rumor-tools">
                             <select id="rumor-company-select">
                                 <option value="ulanska">Ułańska</option>
                                 <option value="nicorp">NiCorp</option>
+                                <option value="rychbud">RychBud</option>
+                                <option value="brzozair">BrzozAir</option>
+                                <option value="cosmosanit">Cosmosanit</option>
+                                <option value="igirium">Igirium</option>
                             </select>
                             <div class="sentiment-switch">
-                                <label><input type="radio" name="sentiment" value="positive" checked> 👍</label>
-                                <label><input type="radio" name="sentiment" value="negative"> 👎</label>
+                                <label><input type="radio" name="sentiment" value="positive" checked> 📈</label>
+                                <label><input type="radio" name="sentiment" value="negative"> 📉</label>
                             </div>
                         </div>
-                        <button type="submit">Publikuj</button>
+                        <button type="submit" class="action-btn-full">Publikuj Plotkę</button>
                     </form>
-                    <div id="rumors-feed" class="feed-box"></div>
-                    <button id="buy-tip-button" class="action-btn-full">Kup Wskazówkę (<span id="tip-cost">1500</span> zł)</button>
-                </section>
-
-                <section id="chat-panel" class="panel">
-                    <h2>💬 Czat</h2>
-                    <div id="chat-feed" class="feed-box"></div>
-                    <form id="chat-form">
-                        <input type="text" id="chat-input" placeholder="Napisz coś..." required>
-                        <button type="submit"><i class="fas fa-paper-plane"></i></button>
-                    </form>
-                    <div id="pvp-embedded-roulette" class="hidden">
-                        <h3 id="pvp-vs-title">PvP</h3>
-                        <div class="roulette-window embedded">
-                            <div class="roulette-marker"></div>
-                            <div id="roulette-strip" class="roulette-strip"></div>
-                        </div>
-                        <h3 id="pvp-roulette-winner">...</h3>
+                    <div id="rumors-feed" class="feed-box">
+                        <p>Ładowanie plotek...</p>
                     </div>
+                    <button id="buy-tip-button" class="action-btn-full" style="background:#8b5cf6; margin-top:10px;">
+                        Kup Wskazówkę (<span id="tip-cost">1500</span> zł)
+                    </button>
                 </section>
 
                 <section id="history-tabs-panel" class="panel">
                     <div class="tab-buttons">
                         <button class="tab-btn active" data-tab="global-history">Globalna</button>
                         <button class="tab-btn" data-tab="personal-history">Moja</button>
-                        <button class="tab-btn" data-tab="active-bonds">Obligacje</button>
-                        <button class="tab-btn" data-tab="limit-orders">Limity</button>
-                    </div>
-                    <div id="tab-global-history" class="tab-content active"><div id="global-history-feed" class="feed-box"></div></div>
-                    <div id="tab-personal-history" class="tab-content"><div id="personal-history-feed" class="feed-box"></div></div>
-                    
-                    <div id="tab-active-bonds" class="tab-content">
-                        <form id="bonds-form">
-                            <input type="number" id="bond-amount" placeholder="Kwota" min="1">
-                            <select id="bond-type">
-                                <option value="1">1 Dzień (5%)</option>
-                                <option value="2">2 Dni (10%)</option>
-                                <option value="3">3 Dni (15%)</option>
-                            </select>
-                            <button type="submit" id="buy-bond-button" class="action-btn-full">Inwestuj</button>
-                        </form>
-                        <div id="active-bonds-feed" class="feed-box"></div>
+                        <button class="tab-btn" data-tab="ranking">Ranking</button>
                     </div>
                     
-                    <div id="tab-limit-orders" class="tab-content"><div id="limit-orders-feed" class="feed-box"></div></div>
+                    <div id="tab-global-history" class="tab-content active">
+                        <div id="global-history-feed" class="feed-box">
+                            <p>Ładowanie historii...</p>
+                        </div>
+                    </div>
+                    <div id="tab-personal-history" class="tab-content">
+                        <div id="personal-history-feed" class="feed-box">
+                            <p>Brak transakcji.</p>
+                        </div>
+                    </div>
+                    <div id="tab-ranking" class="tab-content">
+                        <ol id="leaderboard-list">
+                            <li>Ładowanie rankingu...</li>
+                        </ol>
+                    </div>
                 </section>
             </div>
+        </div>
+
+        <div id="view-fun" class="view-section">
+            <div class="fun-grid">
+                
+                <section id="casino-panel" class="panel">
+                    <h2>🎰 Ruletka</h2>
+                    <div class="casino-wrapper">
+                        <div class="roulette-wheel">
+                            <div class="wheel-inner" id="wheel-inner">
+                                </div>
+                            <div class="ball-track">
+                                <div class="ball" id="ball"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="casino-controls">
+                            <p id="casino-status">Postaw zakład!</p>
+                            <input type="number" id="casino-amount" class="dark-input" placeholder="Stawka" value="100">
+                            
+                            <div class="bet-row">
+                                <button class="casino-btn btn-red" onclick="selectBetType('color', 'red')">🔴 (x2)</button>
+                                <button class="casino-btn btn-black" onclick="selectBetType('color', 'black')">⚫ (x2)</button>
+                                <button class="casino-btn btn-green" onclick="selectBetType('color', 'green')">🟢 (x36)</button>
+                            </div>
+                            
+                            <button id="spin-button" class="action-btn-full spin-btn" onclick="commitSpin()">ZAKRĘĆ!</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="pvp-panel" class="panel">
+                    <h2>⚔️ Pojedynki PvP</h2>
+                    <p>Postaw stawkę. Ktoś przyjmuje. System losuje. Zwycięzca bierze wszystko.</p>
+                    <form id="pvp-create-form">
+                        <div class="pvp-controls">
+                            <input type="number" id="pvp-amount" placeholder="Stawka (min 1000)" class="dark-input" required>
+                            <button type="submit" class="action-btn-full">STWÓRZ</button>
+                        </div>
+                    </form>
+                    <hr>
+                    <div id="pvp-feed" class="feed-box">
+                        <p>Szukam wyzwań...</p>
+                    </div>
+                </section>
+
+                <section id="betting-panel" class="panel">
+                    <h2>⚽ Zakłady Sportowe</h2>
+                    <div id="match-info"><p>Szukam dostępnych meczów...</p></div>
+                    
+                    <form id="betting-form" class="hidden">
+                        <h3 id="bet-target-label">Wybrano: ...</h3>
+                        <input type="number" id="bet-amount" placeholder="Stawka" class="dark-input">
+                        <button type="submit" id="place-bet-button" class="action-btn-full">Zatwierdź</button>
+                    </form>
+                    
+                    <hr>
+                    <h3>Twoje kupony</h3>
+                    <div id="active-bets-feed" class="feed-box">
+                        <p>Brak kuponów.</p>
+                    </div>
+                </section>
+
+                <section id="radio-panel" class="panel">
+                    <h2>🎧 Radio</h2>
+                    <div class="video-container">
+                        <iframe 
+                            width="100%" 
+                            height="200" 
+                            src="https://www.youtube.com/embed/N2iGDpu-3ZI?si=9cOCpOaC0hfUCehx" 
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowfullscreen>
+                        </iframe>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <div id="view-rules" class="view-section">
+            <section class="panel highlight-panel">
+                <h2>🏆 TURNIEJ I ZASADY</h2>
+                <div class="help-content">
+                    <h3>Wielki Turniej</h3>
+                    <p><strong>Start:</strong> 26 Listopada 2025, 15:30</p>
+                    <ul>
+                        <li>🥇 1. miejsce: 50,000 PLN</li>
+                        <li>🥈 2. miejsce: 30,000 PLN</li>
+                    </ul>
+                    <hr>
+                    <h3>Prestiż</h3>
+                    <p>Wbijaj poziomy, aby odblokować Krypto (NiCorp, Igirium) i tańsze wskazówki.</p>
+                    <ul>
+                        <li>⭐️ Poziom 1: 15k</li>
+                        <li>⭐️⭐️ Poziom 2: 30k</li>
+                        <li>⭐️⭐️⭐️ Poziom 3: 60k (Krypto Odblokowane!)</li>
+                    </ul>
+                </div>
+            </section>
         </div>
 
     </div>
@@ -371,11 +335,9 @@
                 <div id="modal-portfolio-chart-container"></div>
                 <div id="modal-stats">
                     <p>Wartość: <strong id="modal-total-value"></strong></p>
-                    <p>Zysk: <strong id="modal-total-profit"></strong></p>
                     <p>Gotówka: <strong id="modal-cash"></strong></p>
                     <hr>
                     <p id="prestige-info">Prestiż: <strong id="modal-prestige-level"></strong></p>
-                    <p id="prestige-next-goal"></p>
                     <button id="prestige-button" class="action-btn-full" disabled>Awansuj</button>
                 </div>
             </div>
