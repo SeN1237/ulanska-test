@@ -231,3 +231,116 @@ input:focus, select:focus { border-color: var(--accent-color); }
 .roulette-strip { display: flex; height: 100%; }
 .roulette-card { width: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-right: 1px solid #333; color: white; font-weight: bold; }
 .card-creator { background: #3a7bd5; } .card-joiner { background: #ff1744; }
+/* --- BUKMACHERKA (PORT Z MAIN) --- */
+
+/* Pasek z przyciskami dni */
+.betting-days-nav {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.day-tab-btn {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+    padding: 8px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 0.9em;
+    font-weight: bold;
+    transition: all 0.2s ease;
+}
+
+.day-tab-btn:hover {
+    border-color: var(--accent-color);
+    color: white;
+}
+
+.day-tab-btn.active {
+    background-color: var(--accent-color);
+    color: #000; /* Czarny tekst na jasnym akcencie */
+    border-color: var(--accent-color);
+    box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
+}
+
+/* Tabela meczów */
+.betting-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.betting-table th {
+    text-align: left;
+    color: var(--text-muted);
+    font-size: 0.8em;
+    padding: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.betting-table td {
+    padding: 12px 5px;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+    vertical-align: middle;
+}
+
+.betting-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Kolumny */
+.col-time { width: 15%; color: var(--text-muted); font-size: 0.8em; }
+.col-match { width: 40%; }
+.col-odds { width: 45%; }
+
+/* Grupa przycisków kursów */
+.odds-btn-group {
+    display: flex;
+    gap: 5px;
+}
+
+.table-bet-btn {
+    flex: 1;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 6px 2px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85em;
+    text-align: center;
+    transition: background 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.table-bet-btn:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: var(--accent-color);
+}
+
+.table-bet-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    border-color: transparent;
+}
+
+.table-bet-btn small {
+    display: block;
+    font-weight: bold;
+    color: var(--accent-color); /* Kolor kursu */
+    margin-top: 2px;
+}
+
+/* Statusy */
+.match-live { color: var(--red); font-weight: bold; animation: pulse 1.5s infinite; }
+.match-finished { color: var(--text-muted); font-style: italic; }
+
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
