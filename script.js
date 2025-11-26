@@ -1009,42 +1009,42 @@ function renderBettingPanel() {
     `;
     const tbody = table.querySelector("tbody");
 
+    // --- POCZĄTEK ZMIANY W script.js (wewnątrz renderBettingPanel) ---
+
     dayMatches.forEach(match => {
+        // 1. FILTROWANIE: Jeśli mecz nie jest otwarty, pomiń go (nie pokazuj w tabeli)
+        if (match.status !== 'open') return; 
+
         const tr = document.createElement("tr");
         const date = match.closeTime.toDate();
         const timeStr = date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
         
-        const isClosed = match.status !== 'open';
-        const isResolved = match.status === 'resolved';
-
-        // Kolumna Czasu
+        // Ponieważ filtrujemy wyżej, zawsze wyświetlamy czas (nie musimy sprawdzać isResolved)
         let timeHtml = timeStr;
-        if (isResolved) timeHtml = "Koniec";
-        else if (isClosed) timeHtml = `<span class="match-live">LIVE</span>`;
-
-        // Kolumna Meczu (Drużyny + ewentualny wynik)
-        let matchHtml = `<strong>${match.teamA}</strong><br><small>vs</small><br><strong>${match.teamB}</strong>`;
-        if (isResolved) {
-            let w = match.winner === 'draw' ? 'REMIS' : (match.winner === 'teamA' ? match.teamA : match.teamB);
-            matchHtml += `<br><span class="match-finished">Wynik: ${w}</span>`;
-        }
+        
+        // Kolumna Meczu
+        let matchHtml = `<strong>${match.teamA}</strong> <small>vs</small> <strong>${match.teamB}</strong>`;
 
         // Helper do przycisków
         const createBtn = (teamCode, odds, label) => `
-            <button class="table-bet-btn" ${isClosed ? 'disabled' : ''}
+            <button class="table-bet-btn"
                 onclick="selectBet('${match.id}', '${teamCode}', ${odds}, '${match.teamA} vs ${match.teamB} [${label}]')">
-                ${label}<small>${odds.toFixed(2)}</small>
+                <span style="display:block; font-size:0.8em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:80px;">${label}</span>
+                <small style="color:var(--accent-color); font-weight:bold;">${odds.toFixed(2)}</small>
             </button>`;
 
+        // 2. ZMIANA ETYKIET: Zamiast '1', 'X', '2' wstawiamy nazwy
         const oddsHtml = `<div class="odds-btn-group">
-            ${createBtn('teamA', match.oddsA, '1')}
-            ${createBtn('draw', match.oddsDraw, 'X')}
-            ${createBtn('teamB', match.oddsB, '2')}
+            ${createBtn('teamA', match.oddsA, match.teamA)}
+            ${createBtn('draw', match.oddsDraw, 'REMIS')}
+            ${createBtn('teamB', match.oddsB, match.teamB)}
         </div>`;
 
         tr.innerHTML = `<td class="col-time">${timeHtml}</td><td class="col-match">${matchHtml}</td><td class="col-odds">${oddsHtml}</td>`;
         tbody.appendChild(tr);
     });
+
+    // --- KONIEC ZMIANY ---
     
     dom.matchInfo.appendChild(table);
 }
