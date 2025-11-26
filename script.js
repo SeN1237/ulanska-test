@@ -71,6 +71,17 @@ let matchesCache = [];
 let activeDayTab = null; 
 let currentBetSelection = null; 
 
+// CRASH GAME VARS (NOWE)
+let crashGameLoop;
+let crashMultiplier = 1.00;
+let crashIsRunning = false;
+let crashHasCashedOut = false;
+let crashBetAmount = 0;
+let crashCurvePoints = [];
+let crashSpeed = 0.05;
+let crashCanvas, crashCtx;
+let crashCurrentCrashPoint = 0;
+
 // Unsubscribes
 let unsubscribePortfolio = null;
 let unsubscribeRumors = null;
@@ -277,9 +288,9 @@ document.addEventListener("DOMContentLoaded", () => {
         showLoginLink: document.getElementById("show-login-link"),
         username: document.getElementById("username"),
         logoutButton: document.getElementById("logout-button"),
-        userInfo: document.getElementById("user-info"), // <--- DODAJ TĘ LINIĘ
+        userInfo: document.getElementById("user-info"), 
         
-        // Navigation (NOWE)
+        // Navigation
         navButtons: document.querySelectorAll(".nav-btn"),
         views: document.querySelectorAll(".view-section"),
         entertainmentCash: document.getElementById("entertainment-cash-display"),
@@ -353,6 +364,14 @@ document.addEventListener("DOMContentLoaded", () => {
         pvpAmount: document.getElementById("pvp-amount"),
         pvpFeed: document.getElementById("pvp-feed"),
         
+        // CRASH GAME (NOWE)
+        crashCanvas: document.getElementById("crash-canvas"),
+        crashMultiplierText: document.getElementById("crash-multiplier"),
+        crashInfo: document.getElementById("crash-info"),
+        crashAmount: document.getElementById("crash-amount"),
+        btnCrashAction: document.getElementById("btn-crash-action"),
+        crashHistoryList: document.getElementById("crash-history-list"),
+
         // Modal
         modalOverlay: document.getElementById("user-profile-modal"),
         modalCloseButton: document.getElementById("modal-close-button"),
@@ -404,13 +423,18 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.showLoginLink.addEventListener("click", (e) => { e.preventDefault(); dom.authContainer.classList.remove("show-register"); showAuthMessage(""); });
     dom.userInfo.addEventListener("click", () => {
     if (currentUserId) showUserProfile(currentUserId);
-});
-// --- OBSŁUGA PŁYWAJĄCEGO CZATU ---
+    });
+
+    // CRASH LISTENERS
+    if(dom.btnCrashAction) dom.btnCrashAction.addEventListener("click", onCrashAction);
+    if(dom.crashCanvas) initCrashCanvas(); 
+
+    // --- OBSŁUGA PŁYWAJĄCEGO CZATU ---
     const chatFab = document.getElementById("chat-fab");
     const chatWindow = document.getElementById("floating-chat-window");
     const closeChatBtn = document.getElementById("close-chat-btn");
     const chatBadge = document.getElementById("chat-badge");
-    const chatFeedRef = document.getElementById("chat-feed"); // Referencja do feedu
+    const chatFeedRef = document.getElementById("chat-feed"); 
 
     // Funkcja otwierania/zamykania
     function toggleChat() {
@@ -992,9 +1016,6 @@ function listenToActiveMatch() {
     });
 }
 
-// *** NOWA FUNKCJA DO NASŁUCHIWANIA TWOICH KUPONÓW ***
-// W pliku script.js znajdź i podmień całą funkcję listenToActiveBets:
-
 function listenToActiveBets(userId) {
     if (unsubscribeActiveBets) unsubscribeActiveBets();
     
@@ -1121,13 +1142,8 @@ function renderBettingPanel() {
     `;
     const tbody = table.querySelector("tbody");
 
-    // --- POCZĄTEK ZMIANY W script.js (wewnątrz renderBettingPanel) ---
-
-    // Wewnątrz funkcji renderBettingPanel (script.js):
-
     dayMatches.forEach(match => {
-        // TU USUNĘLIŚMY FILTR (wszystkie mecze są widoczne, nawet zakończone)
-
+        
         const tr = document.createElement("tr");
         const date = match.closeTime.toDate();
         const timeStr = date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
@@ -1165,8 +1181,6 @@ function renderBettingPanel() {
         tr.innerHTML = `<td class="col-time">${timeHtml}</td><td class="col-match">${matchHtml}</td><td class="col-odds">${oddsHtml}</td>`;
         tbody.appendChild(tr);
     });
-
-    // --- KONIEC ZMIANY ---
     
     dom.matchInfo.appendChild(table);
 }
@@ -1780,4 +1794,267 @@ async function onPrestigeReset() {
     } catch(e) {
         showMessage(e.message, "error");
     }
+}
+
+// ==========================================
+// === CRASH GAME LOGIC (Rakieta) ===
+// ==========================================
+
+function initCrashCanvas() {
+    crashCanvas = dom.crashCanvas;
+    if(!crashCanvas) return;
+    crashCtx = crashCanvas.getContext('2d');
+    crashCtx.lineCap = 'round';
+    crashCtx.lineJoin = 'round';
+    drawCrashFrame(true); // Rysuje stan początkowy
+}
+
+async function onCrashAction() {
+    // 1. START GRY
+    if (!crashIsRunning) {
+        const amount = parseInt(dom.crashAmount.value);
+        if (isNaN(amount) || amount <= 0) return showMessage("Podaj stawkę!", "error");
+        if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
+        if (!currentUserId) return showMessage("Zaloguj się!", "error");
+
+        try {
+            // Pobranie kasy z Firebase
+            await runTransaction(db, async (t) => {
+                const userRef = doc(db, "uzytkownicy", currentUserId);
+                const userDoc = await t.get(userRef);
+                const d = userDoc.data();
+                if (d.cash < amount) throw new Error("Brak środków!");
+                
+                // Odejmujemy kasę na start
+                const newCash = d.cash - amount;
+                const newVal = calculateTotalValue(newCash, d.shares);
+                t.update(userRef, { cash: newCash, totalValue: newVal });
+            });
+
+            // Start logiczny
+            crashBetAmount = amount;
+            startCrashGame();
+
+        } catch (e) {
+            showMessage(e.message, "error");
+        }
+    } 
+    // 2. WYPŁATA (CASHOUT)
+    else if (crashIsRunning && !crashHasCashedOut) {
+        doCrashCashout();
+    }
+}
+
+function startCrashGame() {
+    crashIsRunning = true;
+    crashHasCashedOut = false;
+    crashMultiplier = 1.00;
+    crashCurvePoints = [{x: 0, y: crashCanvas.height}];
+    
+    // Zmiana przycisku
+    dom.btnCrashAction.textContent = "WYPŁAĆ!";
+    dom.btnCrashAction.classList.add("btn-cashout");
+    dom.crashMultiplierText.classList.remove("crashed", "cashed-out");
+    dom.crashInfo.textContent = `Lecimy za ${formatujWalute(crashBetAmount)}...`;
+    if(dom.crashAmount) dom.crashAmount.disabled = true;
+
+    // Ustalanie punktu katastrofy (Prosty algorytm)
+    // Generuje liczbę od 1.00 do nieskończoności z rozkładem wykładniczym (jak na prawdziwych stronach crash)
+    // 1% szans na instant crash (1.00)
+    const r = Math.random();
+    crashCurrentCrashPoint = Math.max(1.00, (0.99 / (1 - r))); 
+    
+    // Ograniczenie dla bezpieczeństwa symulatora (np. max 100x żeby nie zbankrutować gry za szybko)
+    if(crashCurrentCrashPoint > 50) crashCurrentCrashPoint = 50 + Math.random() * 50;
+
+    // Pętla gry
+    let time = 0;
+    clearInterval(crashGameLoop);
+    
+    crashGameLoop = setInterval(() => {
+        time += 0.05; // Czas w sekundach (przybliżony)
+        
+        // Funkcja wzrostu mnożnika (wykładnicza)
+        crashMultiplier = Math.pow(Math.E, 0.06 * time); 
+
+        // Rysowanie
+        updateCrashCurve();
+        
+        // UI
+        dom.crashMultiplierText.textContent = crashMultiplier.toFixed(2) + "x";
+        
+        // Jeśli wypłacono, pokaż ile wygrał
+        if(crashHasCashedOut) {
+             // Gra leci dalej w tle wizualnie, ale przycisk jest nieaktywny
+        } else {
+             dom.btnCrashAction.textContent = `WYPŁAĆ (${formatujWalute(crashBetAmount * crashMultiplier)})`;
+        }
+
+        // Sprawdzenie Crashed
+        if (crashMultiplier >= crashCurrentCrashPoint) {
+            endCrashGame();
+        }
+
+    }, 16); // ~60 FPS
+}
+
+function updateCrashCurve() {
+    const width = crashCanvas.width;
+    const height = crashCanvas.height;
+
+    // Obliczanie punktu na wykresie
+    // X rośnie liniowo, Y rośnie wykładniczo (odwrócone, bo Y=0 to góra)
+    // Skalujemy, żeby wykres był ładny
+    
+    const stepX = (crashMultiplier - 1) * 80; // Skalowanie X
+    const stepY = (crashMultiplier - 1) * 60; // Skalowanie Y
+
+    const newX = stepX; 
+    const newY = height - stepY;
+
+    // Przesuwanie kamery (jeśli wykres wyjdzie poza ekran)
+    let offsetX = 0;
+    let offsetY = 0;
+    
+    if (newX > width - 50) offsetX = newX - (width - 50);
+    if (newY < 50) offsetY = 50 - newY; // Przesuwamy w dół
+
+    // Rysowanie tła
+    crashCtx.clearRect(0, 0, width, height);
+    
+    // Rysowanie Linii
+    crashCtx.beginPath();
+    crashCtx.moveTo(0 - offsetX, height + offsetY); // Start w lewym dolnym rogu (z uwzg. offsetu)
+    
+    // Rysujemy parabolę
+    // Uproszczona wersja: rysujemy kwadratową funkcję
+    for(let i=0; i<=stepX; i+=5) {
+        // y = x^2 (z grubsza)
+        // Odtwarzamy krzywą na podstawie historii lub prostej funkcji matematycznej pasującej do mnożnika
+        // Tutaj dla prostoty rysujemy linię do aktualnego punktu
+    }
+    
+    crashCtx.quadraticCurveTo(
+        (newX / 2) - offsetX, height + offsetY, 
+        newX - offsetX, newY + offsetY
+    );
+    
+    crashCtx.lineWidth = 4;
+    crashCtx.strokeStyle = crashHasCashedOut ? '#00e676' : '#00d2ff'; // Zielony jeśli wypłacone, niebieski jeśli gra
+    crashCtx.stroke();
+
+    // Rysowanie Rakiety
+    crashCtx.save();
+    crashCtx.translate(newX - offsetX, newY + offsetY);
+    // Kąt rakiety:
+    const angle = -Math.PI / 4 - (crashMultiplier * 0.05); // Rakieta unosi się coraz bardziej pionowo
+    crashCtx.rotate(Math.max(angle, -Math.PI / 2)); 
+    
+    crashCtx.font = "30px Arial";
+    crashCtx.fillText("🚀", -15, 10);
+    crashCtx.restore();
+}
+
+async function doCrashCashout() {
+    if(crashHasCashedOut || !crashIsRunning) return;
+    
+    crashHasCashedOut = true;
+    const cashoutMultiplier = crashMultiplier;
+    const winAmount = crashBetAmount * cashoutMultiplier;
+    const profit = winAmount - crashBetAmount;
+
+    // Zmiana UI
+    dom.btnCrashAction.textContent = "WYPŁACONO!";
+    dom.btnCrashAction.classList.remove("btn-cashout");
+    dom.btnCrashAction.style.background = "#333";
+    dom.crashOverlayText.classList.add("cashed-out");
+    dom.crashInfo.textContent = `Wygrałeś ${formatujWalute(winAmount)}!`;
+
+    // Dźwięk
+    if(dom.audioKaching) dom.audioKaching.play().catch(()=>{});
+
+    // Zapis do Firebase
+    try {
+        await runTransaction(db, async (t) => {
+            const userRef = doc(db, "uzytkownicy", currentUserId);
+            const userDoc = await t.get(userRef);
+            const d = userDoc.data();
+            
+            const newCash = d.cash + winAmount;
+            const newZysk = (d.zysk || 0) + profit;
+            const newVal = calculateTotalValue(newCash, d.shares);
+
+            t.update(userRef, { cash: newCash, zysk: newZysk, totalValue: newVal });
+        });
+        showNotification(`Crash: Wygrana ${formatujWalute(winAmount)}`, 'news', 'positive');
+    } catch(e) {
+        console.error("Błąd zapisu Crash:", e);
+    }
+}
+
+function endCrashGame() {
+    clearInterval(crashGameLoop);
+    crashIsRunning = false;
+    
+    dom.crashMultiplierText.textContent = crashCurrentCrashPoint.toFixed(2) + "x";
+    dom.crashMultiplierText.classList.add("crashed");
+    dom.crashMultiplierText.classList.remove("cashed-out");
+    
+    // UI Reset
+    dom.btnCrashAction.textContent = "START";
+    dom.btnCrashAction.classList.remove("btn-cashout");
+    dom.btnCrashAction.style.background = ""; // Reset do domyślnego
+    if(dom.crashAmount) dom.crashAmount.disabled = false;
+
+    // Rysowanie wybuchu
+    drawCrashFrame(false, true);
+
+    if(!crashHasCashedOut) {
+        dom.crashInfo.textContent = `Rakieta wybuchła przy ${crashCurrentCrashPoint.toFixed(2)}x. Straciłeś ${formatujWalute(crashBetAmount)}.`;
+        if(dom.audioError) dom.audioError.play().catch(()=>{});
+    }
+
+    // Dodaj do historii
+    addCrashHistory(crashCurrentCrashPoint);
+}
+
+function drawCrashFrame(reset = false, exploded = false) {
+    if(!crashCtx) return;
+    const w = crashCanvas.width;
+    const h = crashCanvas.height;
+    
+    if(reset) {
+        crashCtx.clearRect(0, 0, w, h);
+        crashCtx.font = "50px Arial";
+        crashCtx.fillStyle = "#333";
+        crashCtx.fillText("🚀", 20, h - 20);
+        return;
+    }
+
+    if(exploded) {
+        // Efekt wybuchu (prosty tekst na ostatniej pozycji)
+        // Dla uproszczenia czyścimy i rysujemy na środku
+        // W idealnym świecie rysowalibyśmy wybuch w miejscu rakiety, 
+        // ale zmienne offsetu są lokalne w pętli.
+        crashCtx.save();
+        crashCtx.fillStyle = "rgba(255, 0, 0, 0.3)";
+        crashCtx.fillRect(0, 0, w, h);
+        crashCtx.font = "60px Arial";
+        crashCtx.textAlign = "center";
+        crashCtx.fillText("💥", w/2, h/2);
+        crashCtx.restore();
+    }
+}
+
+function addCrashHistory(mult) {
+    const item = document.createElement("div");
+    item.className = "crash-history-item";
+    item.textContent = mult.toFixed(2) + "x";
+    
+    if(mult < 1.10) item.classList.add("bad");
+    else if(mult >= 2.00 && mult < 10.00) item.classList.add("good");
+    else if(mult >= 10.00) item.classList.add("excellent");
+    
+    dom.crashHistoryList.prepend(item);
+    if(dom.crashHistoryList.children.length > 10) dom.crashHistoryList.lastChild.remove();
 }
