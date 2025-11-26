@@ -1157,95 +1157,269 @@ async function onPlaceBet(e) {
     }
 }
 
+// ==========================================
+// === SYSTEM PVP (ZSYNCHRONIZOWANA RULETKA 1:1 Z MAIN) ===
+// ==========================================
+
+// Konfiguracja
+const playedAnimations = new Set(); 
+const CARD_WIDTH = 120; 
+const WINNER_INDEX = 60; 
+
+// --- FUNKCJA POMOCNICZA: Generator liczb na podstawie ID ---
+function getSeededRandom(seedStr) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < seedStr.length; i++) {
+        h ^= seedStr.charCodeAt(i);
+        h = Math.imul(h, 0x01000193);
+    }
+    return function() {
+        h = Math.imul(h ^ (h >>> 16), 2246822507);
+        h = Math.imul(h ^ (h >>> 13), 3266489909);
+        return ((h >>> 0) / 4294967296);
+    }
+}
+
+// 1. Nasłuchiwanie aktywnych wyzwań
+function listenToPvP() {
+    if (typeof unsubscribePvP !== 'undefined' && unsubscribePvP) unsubscribePvP();
+
+    const q = query(
+        collection(db, "pvp_duels"), 
+        where("status", "in", ["open", "battling"]), 
+        limit(20) 
+    );
+    
+    unsubscribePvP = onSnapshot(q, (snap) => {
+        dom.pvpFeed.innerHTML = "";
+        
+        let duels = [];
+        snap.forEach(doc => duels.push({ id: doc.id, ...doc.data() }));
+
+        duels.sort((a, b) => b.createdAt - a.createdAt);
+
+        if (duels.length === 0) {
+            dom.pvpFeed.innerHTML = "<p>Arena jest pusta. Stwórz wyzwanie!</p>";
+            return;
+        }
+
+        duels.forEach(duel => {
+            if (duel.status === 'battling' && !playedAnimations.has(duel.id)) {
+                playedAnimations.add(duel.id);
+                triggerGlobalPvPAnimation(duel); 
+            }
+
+            const isMyDuel = duel.creatorId === currentUserId;
+            const div = document.createElement("div");
+            div.className = "pvp-item";
+            
+            let btnHtml = "";
+            
+            if (duel.status === 'battling') {
+                div.classList.add('battling');
+                btnHtml = `<span class="pvp-status-battling" style="color:var(--accent-color); font-weight:bold;">🎰 LOSOWANIE...</span>`;
+            } else if (isMyDuel) {
+                btnHtml = `<button class="pvp-join-btn" disabled style="background:#555; cursor:default;">Twoje</button>`;
+            } else {
+                btnHtml = `<button class="pvp-join-btn" onclick="joinPvP('${duel.id}', ${duel.amount}, '${duel.creatorName}')">WALCZ!</button>`;
+            }
+
+            div.innerHTML = `
+                <div class="pvp-info">
+                    <strong>${formatujWalute(duel.amount)}</strong>
+                    <span>vs ${duel.creatorName} ${getPrestigeStars(duel.creatorPrestige || 0)}</span>
+                </div>
+                <div>${btnHtml}</div>
+            `;
+            dom.pvpFeed.appendChild(div);
+        });
+    });
+}
+
+// 2. Tworzenie wyzwania
 async function onCreatePvP(e) {
     e.preventDefault();
     const amount = parseFloat(dom.pvpAmount.value);
+    
     if (isNaN(amount) || amount < 1000) return showMessage("Minimum 1000 zł!", "error");
+    if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
+
     try {
         await runTransaction(db, async (t) => {
             const userRef = doc(db, "uzytkownicy", currentUserId);
-            const userData = (await t.get(userRef)).data();
+            const userDoc = await t.get(userRef);
+            const userData = userDoc.data();
+
             if (userData.cash < amount) throw new Error("Za mało gotówki!");
-            t.update(userRef, { cash: userData.cash - amount, totalValue: calculateTotalValue(userData.cash - amount, userData.shares) });
-            t.set(doc(collection(db, "pvp_duels")), { creatorId: currentUserId, creatorName: portfolio.name, creatorPrestige: portfolio.prestigeLevel || 0, amount: amount, status: "open", createdAt: serverTimestamp() });
+
+            const newCash = userData.cash - amount;
+            const newVal = calculateTotalValue(newCash, userData.shares);
+            
+            t.update(userRef, { cash: newCash, totalValue: newVal });
+
+            const duelRef = doc(collection(db, "pvp_duels"));
+            t.set(duelRef, {
+                creatorId: currentUserId,
+                creatorName: portfolio.name,
+                creatorPrestige: portfolio.prestigeLevel || 0,
+                amount: amount,
+                status: "open",
+                createdAt: serverTimestamp()
+            });
         });
-        showMessage("Wyzwanie rzucone!", "success");
-        await addDoc(collection(db, "chat_messages"), { text: `⚔️ PVP na ${formatujWalute(amount)}!`, authorName: "SYSTEM", authorId: "sys", prestigeLevel: 0, timestamp: serverTimestamp() });
-    } catch (e) { showMessage(e.message, "error"); }
-}
-
-function listenToPvP() {
-    unsubscribePvP = onSnapshot(query(collection(db, "pvp_duels"), where("status", "in", ["open", "battling"]), limit(20)), (snap) => {
-        dom.pvpFeed.innerHTML = "";
-        snap.forEach(doc => {
-            const d = doc.data();
-            if(d.status === 'battling' && !playedAnimations.has(doc.id)) { playedAnimations.add(doc.id); triggerGlobalPvPAnimation({id: doc.id, ...d}); }
-            const btn = d.creatorId === currentUserId ? `<button disabled>Twój</button>` : `<button onclick="joinPvP('${doc.id}', ${d.amount}, '${d.creatorName}')">WALCZ!</button>`;
-            dom.pvpFeed.innerHTML += `<div class="pvp-item"><span>${d.creatorName} (${formatujWalute(d.amount)})</span>${d.status==='battling'?'<span>WALKA...</span>':btn}</div>`;
+        
+        showMessage("Wyzwanie rzucone na arenę!", "success");
+        dom.pvpAmount.value = "";
+        
+        await addDoc(collection(db, "chat_messages"), { 
+            text: `⚔️ Stworzyłem wyzwanie PvP na ${formatujWalute(amount)}! Kto się odważy?`, 
+            authorName: "SYSTEM", authorId: "sys", prestigeLevel: 0, timestamp: serverTimestamp() 
         });
-    });
-}
-const playedAnimations = new Set();
-const WINNER_INDEX = 60; const CARD_WIDTH = 120;
-function getSeededRandom(seedStr) { let h = 0x811c9dc5; for(let i=0;i<seedStr.length;i++) { h^=seedStr.charCodeAt(i); h=Math.imul(h,0x01000193); } return function() { h=Math.imul(h^(h>>>16),2246822507); h=Math.imul(h^(h>>>13),3266489909); return ((h>>>0)/4294967296); } }
 
-function triggerGlobalPvPAnimation(duel) {
-    const container = document.getElementById('pvp-embedded-roulette');
-    const strip = document.getElementById('roulette-strip');
-    const winnerText = document.getElementById('pvp-roulette-winner');
-    const rng = getSeededRandom(duel.id);
-    container.classList.remove('hidden');
-    strip.innerHTML = ""; strip.style.transition = "none"; strip.style.transform = "translateX(0px)"; winnerText.textContent = "LOSOWANIE...";
-    
-    const cardsData = [];
-    for (let i = 0; i < 90; i++) cardsData.push(i === WINNER_INDEX ? (duel.winner === duel.creatorName ? 'creator' : 'joiner') : (rng() > 0.5 ? 'creator' : 'joiner'));
-    
-    cardsData.forEach(type => {
-        const div = document.createElement('div');
-        div.className = `roulette-card ${type === 'creator' ? 'card-creator' : 'card-joiner'}`;
-        div.textContent = type === 'creator' ? duel.creatorName : duel.joinerName;
-        strip.appendChild(div);
-    });
-
-    const target = (WINNER_INDEX * CARD_WIDTH) + (CARD_WIDTH / 2) + (rng()-0.5)*(CARD_WIDTH*0.7);
-    const offset = (document.querySelector('.roulette-window').offsetWidth / 2) - target;
-    
-    setTimeout(() => {
-        strip.style.transition = "transform 5s cubic-bezier(0.15, 0.85, 0.35, 1.0)";
-        strip.style.transform = `translateX(${offset}px)`;
-        setTimeout(() => {
-            winnerText.textContent = `WYGRAŁ: ${duel.winner}`;
-            setTimeout(() => { container.classList.add('hidden'); if(currentUserId===duel.joinerId) updateDoc(doc(db,"pvp_duels",duel.id),{status:"closed"}); }, 5000);
-        }, 5000);
-    }, 100);
+    } catch (e) {
+        showMessage("Błąd: " + e.message, "error");
+    }
 }
 
+// 3. Dołączanie do walki
 window.joinPvP = async function(duelId, amount, opponentName) {
-    if (!confirm(`Walczyć za ${formatujWalute(amount)}?`)) return;
+    if (!confirm(`Czy na pewno chcesz postawić ${formatujWalute(amount)} i walczyć z ${opponentName}? Szansa wygranej: 50%.`)) return;
+    if (portfolio.cash < amount) return showMessage("Nie stać Cię na tę walkę!", "error");
+
     try {
+        let winnerName = "";
+        let winnerAmount = amount * 2; 
+
         await runTransaction(db, async (t) => {
             const duelRef = doc(db, "pvp_duels", duelId);
             const joinerRef = doc(db, "uzytkownicy", currentUserId);
             const duelDoc = await t.get(duelRef);
             const joinerDoc = await t.get(joinerRef);
-            if (duelDoc.data().status !== "open") throw new Error("Za późno!");
-            if (joinerDoc.data().cash < amount) throw new Error("Brak środków!");
             
+            if (!duelDoc.exists()) throw new Error("Wyzwanie nie istnieje!");
+            if (duelDoc.data().status !== "open") throw new Error("Ktoś był szybszy!");
+            if (joinerDoc.data().cash < amount) throw new Error("Brak środków!");
+
             const creatorRef = doc(db, "uzytkownicy", duelDoc.data().creatorId);
             const creatorWins = Math.random() > 0.5;
-            const winnerAmount = amount * 2;
+            let joinerCash = joinerDoc.data().cash - amount;
             
-            t.update(joinerRef, { cash: joinerDoc.data().cash - amount });
-            if(creatorWins) {
-                 t.update(creatorRef, { cash: increment(winnerAmount), totalValue: increment(winnerAmount), zysk: increment(amount) });
+            if (creatorWins) {
+                winnerName = duelDoc.data().creatorName;
+                t.update(creatorRef, { cash: increment(winnerAmount), totalValue: increment(winnerAmount), zysk: increment(amount) });
+                t.update(joinerRef, { cash: joinerCash, totalValue: calculateTotalValue(joinerCash, joinerDoc.data().shares), zysk: increment(-amount) });
             } else {
-                 t.update(joinerRef, { cash: increment(winnerAmount), totalValue: increment(winnerAmount), zysk: increment(amount) });
-                 t.update(creatorRef, { zysk: increment(-amount) });
+                winnerName = portfolio.name;
+                joinerCash += winnerAmount;
+                t.update(joinerRef, { cash: joinerCash, totalValue: calculateTotalValue(joinerCash, joinerDoc.data().shares), zysk: increment(amount) });
+                t.update(creatorRef, { zysk: increment(-amount) });
             }
-            t.update(duelRef, { status: "battling", winner: creatorWins ? duelDoc.data().creatorName : portfolio.name, joinerId: currentUserId, joinerName: portfolio.name });
+
+            t.update(duelRef, { 
+                status: "battling", 
+                winner: winnerName,
+                joinerId: currentUserId,
+                joinerName: portfolio.name 
+            });
         });
-    } catch(e) { showMessage(e.message, "error"); }
+
+        await addDoc(collection(db, "chat_messages"), { 
+           text: `⚔️ PVP: ${portfolio.name} przyjął wyzwanie ${opponentName}! Losowanie zwycięzcy...`, 
+           authorName: "SĘDZIA", authorId: "sys", prestigeLevel: 0, timestamp: serverTimestamp() 
+        });
+
+    } catch (e) {
+        showMessage("Błąd: " + e.message, "error");
+    }
 };
+
+// 4. Funkcja ANIMACJI (Zsynchronizowana)
+function triggerGlobalPvPAnimation(duel) {
+    const container = document.getElementById('pvp-embedded-roulette');
+    const strip = document.getElementById('roulette-strip');
+    const winnerText = document.getElementById('pvp-roulette-winner');
+    const title = document.getElementById('pvp-vs-title');
+
+    // Inicjalizacja generatora losowego opartego na ID walki
+    const rng = getSeededRandom(duel.id);
+
+    container.classList.remove('hidden');
+    
+    strip.innerHTML = "";
+    strip.style.transition = "none";
+    strip.style.transform = "translateX(0px)";
+    winnerText.textContent = "LOSOWANIE...";
+    winnerText.className = "pvp-winner-text"; 
+    winnerText.style.color = "var(--text-color)";
+    
+    if(title) title.innerHTML = `<span style="color:var(--blue)">${duel.creatorName}</span> vs <span style="color:var(--red)">${duel.joinerName}</span>`;
+
+    const totalCards = 90;
+    const cardsData = [];
+
+    for (let i = 0; i < totalCards; i++) {
+        if (i === WINNER_INDEX) {
+            cardsData.push(duel.winner === duel.creatorName ? 'creator' : 'joiner');
+        } else {
+            cardsData.push(rng() > 0.5 ? 'creator' : 'joiner');
+        }
+    }
+
+    cardsData.forEach(type => {
+        const div = document.createElement('div');
+        const isCreator = type === 'creator';
+        div.className = `roulette-card ${isCreator ? 'card-creator' : 'card-joiner'}`;
+        const name = isCreator ? duel.creatorName : duel.joinerName;
+        const icon = isCreator ? '🔵' : '🔴';
+        div.innerHTML = `<div class="card-icon">${icon}</div><div>${name}</div>`;
+        strip.appendChild(div);
+    });
+
+    const windowElement = document.querySelector('.roulette-window.embedded');
+    const windowWidth = windowElement ? windowElement.offsetWidth : 300;
+    const winnerCenterPosition = (WINNER_INDEX * CARD_WIDTH) + (CARD_WIDTH / 2);
+    
+    const randomOffset = (rng() - 0.5) * (CARD_WIDTH * 0.7);
+    
+    const targetTranslate = (windowWidth / 2) - (winnerCenterPosition + randomOffset);
+
+    // Start animacji
+    setTimeout(() => {
+        strip.style.transition = "transform 5s cubic-bezier(0.15, 0.85, 0.35, 1.0)";
+        strip.style.transform = `translateX(${targetTranslate}px)`;
+        
+        // Wynik
+        setTimeout(() => {
+            if (duel.winner === portfolio.name) {
+                winnerText.textContent = "WYGRAŁEŚ!";
+                winnerText.style.color = "var(--green)";
+                if(dom.audioKaching) dom.audioKaching.play().catch(()=>{});
+            } else {
+                winnerText.textContent = `WYGRAŁ: ${duel.winner}`;
+                winnerText.style.color = (duel.winner === duel.creatorName) ? "var(--blue)" : "var(--red)";
+                
+                if((currentUserId === duel.creatorId || currentUserId === duel.joinerId) && duel.winner !== portfolio.name) {
+                   if(dom.audioError) dom.audioError.play().catch(()=>{});
+                }
+            }
+            winnerText.classList.add('animate-winner-text');
+
+            // Ukrycie
+            setTimeout(() => {
+                container.classList.add('hidden'); 
+                if (currentUserId === duel.joinerId) {
+                    closeDuelInDb(duel.id);
+                }
+            }, 5000); 
+
+        }, 5000); 
+
+    }, 100);
+}
+
+async function closeDuelInDb(duelId) {
+    try { await updateDoc(doc(db, "pvp_duels", duelId), { status: "closed" }); } catch(e) {}
+}
 
 // --- RULETKA ---
 let isSpinning = false;
@@ -1259,7 +1433,6 @@ window.selectBetType = function(type, value) {
     dom.casinoStatus.textContent = `Wybrano: ${value}`;
 };
 
-// --- RULETKA (Zaktualizowana do wersji animowanej) ---
 // --- RULETKA (Zaktualizowana do wersji animowanej) ---
 window.commitSpin = async function() {
     if (isSpinning) return;
@@ -1278,7 +1451,7 @@ window.commitSpin = async function() {
     allBtns.forEach(b => b.disabled = true);
     if(dom.amountInput) dom.amountInput.disabled = true;
 
-    // Reset widoku koła - usuwamy stare atrybuty, aby animacja mogła ruszyć od nowa
+    // Reset widoku koła
     const innerRing = document.querySelector('.inner');
     const dataContainer = document.querySelector('.data');
     const resultNumberEl = document.querySelector('.result-number');
@@ -1298,25 +1471,21 @@ window.commitSpin = async function() {
     else if (redNumbers.includes(winningNumber)) resultColor = 'red';
 
     // --- 2. START ANIMACJI ---
-    // Małe opóźnienie (50ms), aby przeglądarka zarejestrowała reset stylu przed nałożeniem nowego
     setTimeout(() => {
         innerRing.setAttribute('data-spinto', winningNumber);
     }, 50);
 
-    const spinDuration = 6000; // Czas trwania animacji w ms (zgodny z CSS: 6s)
+    const spinDuration = 6000; 
 
     try {
-        // Czekamy na koniec kręcenia
         await new Promise(r => setTimeout(r, spinDuration));
 
-        // Efekt końcowy - zatrzymanie i pokazanie wyniku
         innerRing.classList.add('rest');
         resultNumberEl.textContent = winningNumber;
         resultColorEl.textContent = resultColor === 'red' ? 'CZERWONE' : (resultColor === 'black' ? 'CZARNE' : 'ZIELONE');
         resultBg.style.backgroundColor = resultColor === 'red' ? 'var(--red)' : (resultColor === 'green' ? 'var(--green)' : '#111');
         dataContainer.classList.add('reveal');
 
-        // Dodanie do historii wyników
         const historyList = document.getElementById('previous-list');
         if(historyList) {
             const li = document.createElement('li');
@@ -1326,7 +1495,6 @@ window.commitSpin = async function() {
             if(historyList.children.length > 12) historyList.lastChild.remove();
         }
 
-        // --- 3. WERYFIKACJA WYGRANEJ I TRANSAKCJA FIREBASE ---
         let multiplier = 0;
         if (currentSelection.type === 'color' && currentSelection.value === resultColor) {
             multiplier = resultColor === 'green' ? 36 : 2;
