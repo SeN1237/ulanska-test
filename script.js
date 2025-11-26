@@ -2410,6 +2410,7 @@ window.onPokerAction = async function() {
     const amountInput = document.getElementById("poker-amount");
     const statusText = document.getElementById("poker-result-text");
 
+    // ... początek funkcji ...
     if (pokerState === 'idle') {
         // --- PHASE 1: DEAL ---
         const amount = parseInt(amountInput.value);
@@ -2417,17 +2418,10 @@ window.onPokerAction = async function() {
         if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
         if (!currentUserId) return showMessage("Zaloguj się!", "error");
 
-        // Transaction: Deduct Money
         try {
+            // ... (tutaj jest kod transakcji Firebase - zostaw bez zmian) ...
             await runTransaction(db, async (t) => {
-                const userRef = doc(db, "uzytkownicy", currentUserId);
-                const userDoc = await t.get(userRef);
-                const d = userDoc.data();
-                if (d.cash < amount) throw new Error("Brak środków!");
-                
-                const newCash = d.cash - amount;
-                const newVal = calculateTotalValue(newCash, d.shares);
-                t.update(userRef, { cash: newCash, totalValue: newVal });
+                // ... (zostaw bez zmian) ...
             });
             
             // Logic Start
@@ -2436,6 +2430,23 @@ window.onPokerAction = async function() {
             createDeck();
             pokerHand = [];
             pokerHeld = [false, false, false, false, false];
+            
+            // --- TUTAJ DODAJ TEN KOD (POPRAWKA) ---
+            // Resetujemy wizualny stan kart (opuszczamy je na dół i usuwamy ramki)
+            for(let i=0; i<5; i++) {
+                const cardEl = document.getElementById(`card-${i}`);
+                const badgeEl = document.getElementById(`hold-${i}`);
+                
+                // Reset stylów
+                if(cardEl) {
+                    cardEl.style.transform = "translateY(0)";
+                    cardEl.style.border = ""; // Usuwa żółtą ramkę inline
+                    cardEl.classList.add('back'); // Przywraca tył karty przed animacją (opcjonalne)
+                }
+                // Ukrycie napisu HOLD
+                if(badgeEl) badgeEl.classList.add('hidden');
+            }
+            // ---------------------------------------
             
             // Deal 5 cards
             for(let i=0; i<5; i++) pokerHand.push(pokerDeck.pop());
@@ -2447,7 +2458,7 @@ window.onPokerAction = async function() {
             // Update UI State
             pokerState = 'deal';
             btn.textContent = "WYMIEŃ (DRAW)";
-            btn.style.background = "var(--accent-color)"; // Blue/Cyan
+            btn.style.background = "var(--accent-color)";
             statusText.textContent = "ZATRZYMAJ KARTY (HOLD)";
 
         } catch(e) {
@@ -2455,6 +2466,7 @@ window.onPokerAction = async function() {
         }
 
     } else if (pokerState === 'deal') {
+// ... reszta kodu bez zmian ...
         // --- PHASE 2: DRAW ---
         
         // Replace unheld cards
