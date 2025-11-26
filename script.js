@@ -1550,10 +1550,50 @@ function listenToGlobalHistory() { unsubscribeGlobalHistory = onSnapshot(query(c
 function listenToPersonalHistory(uid) { unsubscribePersonalHistory = onSnapshot(query(collection(db, "historia_transakcji"), where("userId","==",uid), orderBy("timestamp", "desc"), limit(15)), snap => { dom.personalHistoryFeed.innerHTML=""; snap.forEach(d => displayHistoryItem(dom.personalHistoryFeed, d.data(), false)); }); }
 
 function displayHistoryItem(feed, item, isGlobal) {
-    const p = document.createElement("p");
-    const userPart = isGlobal ? `<span onclick="showUserProfile('${item.userId}')">${item.userName}</span> ` : "";
-    p.innerHTML = `${userPart}<span>${item.type}</span> <span>${item.companyName}</span> <span>${formatujWalute(item.totalValue)}</span>`;
-    feed.prepend(p);
+    const div = document.createElement("div");
+    div.className = "history-row";
+    
+    // 1. Ustalanie koloru i stylu akcji
+    let actionClass = "h-neutral";
+    let displayType = item.type;
+
+    if (item.type.includes("KUPNO")) {
+        actionClass = "h-buy";
+        displayType = "KUPNO"; // Skracamy tekst dla czytelności
+    } else if (item.type.includes("SPRZEDAŻ")) {
+        actionClass = "h-sell";
+        displayType = "SPRZEDAŻ";
+    } else if (item.type.includes("OBLIGACJA")) {
+        actionClass = "h-bond";
+        displayType = "OBLIGACJA";
+    } else if (item.type.includes("ZAKŁAD")) {
+        actionClass = "h-bet";
+        displayType = "ZAKŁAD";
+    }
+
+    // 2. Pierwsza kolumna: Nazwa Gracza (Global) lub Godzina (Prywatna)
+    let col1 = "";
+    if (isGlobal) {
+        col1 = `<span class="h-col h-user clickable-user" onclick="showUserProfile('${item.userId}')">${item.userName}</span>`;
+    } else {
+        // Konwersja timestampa Firebase na godzinę
+        let timeStr = "--:--";
+        if (item.timestamp && item.timestamp.seconds) {
+            const date = new Date(item.timestamp.seconds * 1000);
+            timeStr = date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+        }
+        col1 = `<span class="h-col h-time">${timeStr}</span>`;
+    }
+
+    // 3. Budowanie HTML
+    div.innerHTML = `
+        ${col1}
+        <span class="h-col h-type ${actionClass}">${displayType}</span>
+        <span class="h-col h-asset">${item.companyName}</span>
+        <span class="h-col h-val">${formatujWalute(item.totalValue)}</span>
+    `;
+    
+    feed.prepend(div);
 }
 
 window.showUserProfile = async function(uid) {
