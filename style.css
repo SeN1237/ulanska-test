@@ -261,12 +261,18 @@ input:focus, select:focus { border-color: var(--accent-color); }
 @keyframes fadeOut { to { opacity: 0; visibility: hidden; } }
 @keyframes scaleUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-/* --- OSADZONA RULETKA PVP (EMBEDDED) --- */
+/* =============================================== */
+/* === OSADZONA RULETKA PVP (POPRAWIONA) === */
+/* =============================================== */
 
 #pvp-embedded-roulette {
     margin-top: 20px;
     padding-top: 10px;
     animation: fadeIn 0.5s ease;
+    width: 100%;           /* Wypełnij dostępną szerokość */
+    max-width: 100%;       /* Nie wychodź poza kafelek */
+    box-sizing: border-box; /* Uwzględnij padding w szerokości */
+    overflow: hidden;      /* Ukryj wszystko co wystaje */
 }
 
 .pvp-title-embedded {
@@ -277,39 +283,42 @@ input:focus, select:focus { border-color: var(--accent-color); }
     letter-spacing: 1px;
 }
 
-/* Okno ruletki dopasowane do panelu */
+/* Okno ruletki - kontener paska i markera */
 .roulette-window.embedded {
-    width: 100%;
+    width: 100%;           /* Szerokość dopasowana do rodzica */
+    max-width: 100%;       /* Zabezpieczenie przed rozpychaniem */
     height: 100px;
     background-color: #000;
-    position: relative;
-    overflow: hidden;
+    position: relative;    /* Ważne dla pozycjonowania markera */
+    overflow: hidden;      /* Ukrywa karty poza widokiem */
     border: 2px solid var(--border-color);
     border-radius: 6px;
     margin: 0 auto;
     box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+    box-sizing: border-box;
 }
 
 .roulette-strip {
     display: flex;
     height: 100%;
-    width: max-content;
+    width: max-content;    /* Pasek jest tak długi jak suma kart */
     transform: translateX(0); 
     will-change: transform;
 }
 
-/* --- KURSOR RULETKI (Złota linia z trójkątami) --- */
+/* --- KURSOR RULETKI (Naprawiony) --- */
 .roulette-marker {
     position: absolute;
     left: 50%;
     top: 0;
     bottom: 0;
-    width: 4px; /* Grubsza linia */
-    background: #ffd700; /* Złoty kolor (Gold) */
-    z-index: 50;
+    width: 4px;            /* Grubość linii */
+    background: #FFD700;   /* Złoty kolor */
+    z-index: 1000;         /* Bardzo wysoki index - zawsze na wierzchu */
     transform: translateX(-50%);
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
     pointer-events: none;
+    height: 100%;          /* Pełna wysokość okna */
 }
 
 /* Trójkąt na górze */
@@ -321,8 +330,9 @@ input:focus, select:focus { border-color: var(--accent-color); }
     transform: translateX(-50%);
     border-left: 10px solid transparent;
     border-right: 10px solid transparent;
-    border-top: 15px solid #ffd700;
-    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+    border-top: 15px solid #FFD700;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.8));
+    z-index: 1001;
 }
 
 /* Trójkąt na dole */
@@ -334,10 +344,12 @@ input:focus, select:focus { border-color: var(--accent-color); }
     transform: translateX(-50%);
     border-left: 10px solid transparent;
     border-right: 10px solid transparent;
-    border-bottom: 15px solid #ffd700;
-    filter: drop-shadow(0 -2px 2px rgba(0,0,0,0.5));
+    border-bottom: 15px solid #FFD700;
+    filter: drop-shadow(0 -2px 2px rgba(0,0,0,0.8));
+    z-index: 1001;
 }
 
+/* Karty w pasku */
 .roulette-card {
     width: 120px;
     height: 100%;
@@ -352,23 +364,25 @@ input:focus, select:focus { border-color: var(--accent-color); }
     padding: 5px;
     text-align: center;
     position: relative;
+    background-color: #1a1a1a; /* Domyślne tło */
 }
 
 .card-creator {
     background: linear-gradient(180deg, #1e3c72 0%, #2a5298 100%);
     color: white;
-    border-bottom: 3px solid var(--blue);
+    border-bottom: 4px solid var(--blue);
 }
 
 .card-joiner {
     background: linear-gradient(180deg, #8E0E00 0%, #1F1C18 100%);
     color: white;
-    border-bottom: 3px solid var(--red);
+    border-bottom: 4px solid var(--red);
 }
 
 .card-icon {
-    font-size: 1.5em;
-    margin-bottom: 2px;
+    font-size: 1.8em;
+    margin-bottom: 5px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 
 .pvp-winner-text {
@@ -386,20 +400,19 @@ input:focus, select:focus { border-color: var(--accent-color); }
     animation: flash-accent 1s infinite;
 }
 
-/* Cienie po bokach dla głębi */
+/* Cienie po bokach dla głębi (Winieta) */
 .roulette-window.embedded::before, .roulette-window.embedded::after {
     content: '';
     position: absolute;
     top: 0; bottom: 0;
-    width: 40px;
-    z-index: 5;
+    width: 60px; /* Szersze cienie */
+    z-index: 50; /* Nad kartami, ale pod markerem */
     pointer-events: none;
 }
-.roulette-window.embedded::before { left: 0; background: linear-gradient(to right, rgba(0,0,0,0.9), transparent); }
-.roulette-window.embedded::after { right: 0; background: linear-gradient(to left, rgba(0,0,0,0.9), transparent); }
+.roulette-window.embedded::before { left: 0; background: linear-gradient(to right, rgba(0,0,0,1), transparent); }
+.roulette-window.embedded::after { right: 0; background: linear-gradient(to left, rgba(0,0,0,1), transparent); }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
 /* --- BUKMACHERKA (PORT Z MAIN) --- */
 .betting-days-nav {
     display: flex;
