@@ -264,8 +264,6 @@ function onSelectView(e) {
 
 // --- START APLIKACJI ---
 document.addEventListener("DOMContentLoaded", () => {
-    const savedTheme = localStorage.getItem('simulatorTheme') || 'dark';
-    document.body.setAttribute('data-theme', savedTheme);
 
     dom = {
         // Auth
@@ -287,7 +285,6 @@ document.addEventListener("DOMContentLoaded", () => {
         entertainmentCash: document.getElementById("entertainment-cash-display"),
 
         // Main UI
-        themeSelect: document.getElementById("theme-select"),
         tickerContent: document.getElementById("ticker-content"),
         marketTypeTabs: document.querySelectorAll(".market-type-tab"),
         companySelector: document.getElementById("company-selector"),
@@ -378,7 +375,6 @@ document.addEventListener("DOMContentLoaded", () => {
         notificationContainer: document.getElementById("notification-container")
     };
 
-    if(dom.themeSelect) dom.themeSelect.value = savedTheme;
 
     // Listenery
     dom.navButtons.forEach(btn => btn.addEventListener("click", onSelectView)); 
@@ -398,7 +394,6 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.bettingForm.addEventListener("submit", onPlaceBet);
     dom.pvpForm.addEventListener("submit", onCreatePvP);
     dom.resetPasswordLink.addEventListener("click", onResetPassword);
-    dom.themeSelect.addEventListener("change", onChangeTheme);
     dom.prestigeButton.addEventListener("click", onPrestigeReset);
     dom.orderTabMarket.addEventListener("click", onSelectOrderTab);
     dom.orderTabLimit.addEventListener("click", onSelectOrderTab);
@@ -503,7 +498,7 @@ function updatePortfolioUI() {
                 fontFamily: 'inherit'
             },
             colors: CHART_COLORS,
-            theme: { mode: document.body.getAttribute('data-theme') === 'light' ? 'light' : 'dark' },
+            theme: { mode: 'dark' },
             stroke: { show: false }, // Usunięcie obramowania segmentów
             dataLabels: { enabled: false }, // Wyłączenie cyferek na wykresie dla czystości
             legend: { show: false }, // Ukrywamy legendę (bo mamy listę pod spodem)
@@ -543,9 +538,6 @@ function updatePortfolioUI() {
     } else {
         // Aktualizacja danych istniejącego wykresu
         portfolioChart.updateOptions({ series: series, labels: labels });
-        // Wymuszenie aktualizacji motywu przy zmianie danych
-        const currentTheme = document.body.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-        portfolioChart.updateOptions({ theme: { mode: currentTheme }});
     }
 
     if (dom.modalOverlay && !dom.modalOverlay.classList.contains("hidden")) updatePrestigeButton(total, portfolio.prestigeLevel);
@@ -605,7 +597,7 @@ function initChart() {
     chart = new ApexCharts(dom.chartContainer, {
         series: [{ data: market[currentCompanyId].history }],
         chart: { type: 'candlestick', height: 350, toolbar: {show:false}, animations: {enabled:false}, background: 'transparent' },
-        theme: { mode: document.body.getAttribute('data-theme') === 'light' ? 'light' : 'dark' },
+        theme: { mode: 'dark' },
         xaxis: { type: 'datetime' },
         yaxis: { labels: { formatter: v => v.toFixed(2) } },
         plotOptions: { candlestick: { colors: { upward: '#00e676', downward: '#ff1744' } } }
@@ -692,14 +684,6 @@ function unlockAudio() {
     } catch (e) {}
 }
 
-function onChangeTheme(e) {
-    const theme = e.target.value;
-    document.body.setAttribute('data-theme', theme);
-    localStorage.setItem('simulatorTheme', theme);
-    const newMode = (theme === 'light') ? 'light' : 'dark';
-    if (chart) chart.updateOptions({ theme: { mode: newMode } });
-    if (portfolioChart) portfolioChart.updateOptions({ theme: { mode: newMode } });
-}
 
 // --- HANDLERS (Pozostałe) ---
 function onBuyMax() { const p = market[currentCompanyId].price; if(p>0) dom.amountInput.value = Math.floor(portfolio.cash/p); }
