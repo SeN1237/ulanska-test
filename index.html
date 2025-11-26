@@ -448,7 +448,64 @@
     </div>
 </section>
                 </div>
+                    
+                <section id="poker-panel" class="glass-panel center-content">
+    <div class="panel-head">
+        <h2><i class="fa-solid fa-diamond"></i> Video Poker</h2>
+    </div>
 
+    <div class="poker-wrapper">
+        <div class="poker-screen">
+            
+            <div class="poker-paytable">
+                <div class="pay-row highlight-800"><span>ROYAL FLUSH</span><span>x250</span></div> <div class="pay-row highlight-50"><span>STRAIGHT FLUSH</span><span>x50</span></div>
+                <div class="pay-row highlight-25"><span>FOUR OF A KIND</span><span>x25</span></div>
+                <div class="pay-row highlight-9"><span>FULL HOUSE</span><span>x9</span></div>
+                <div class="pay-row highlight-6"><span>FLUSH</span><span>x6</span></div>
+                <div class="pay-row highlight-4"><span>STRAIGHT</span><span>x4</span></div>
+                <div class="pay-row highlight-3"><span>THREE OF A KIND</span><span>x3</span></div>
+                <div class="pay-row highlight-2"><span>TWO PAIRS</span><span>x2</span></div>
+                <div class="pay-row highlight-1"><span>JACKS OR BETTER</span><span>x1</span></div>
+            </div>
+
+            <div class="poker-status-bar">
+                <span id="poker-result-text">INSERT COIN</span>
+            </div>
+
+            <div class="poker-cards-container">
+                <div class="poker-card-wrapper" onclick="toggleHold(0)">
+                    <div id="hold-0" class="hold-badge hidden">HOLD</div>
+                    <div id="card-0" class="poker-card back"></div>
+                </div>
+                <div class="poker-card-wrapper" onclick="toggleHold(1)">
+                    <div id="hold-1" class="hold-badge hidden">HOLD</div>
+                    <div id="card-1" class="poker-card back"></div>
+                </div>
+                <div class="poker-card-wrapper" onclick="toggleHold(2)">
+                    <div id="hold-2" class="hold-badge hidden">HOLD</div>
+                    <div id="card-2" class="poker-card back"></div>
+                </div>
+                <div class="poker-card-wrapper" onclick="toggleHold(3)">
+                    <div id="hold-3" class="hold-badge hidden">HOLD</div>
+                    <div id="card-3" class="poker-card back"></div>
+                </div>
+                <div class="poker-card-wrapper" onclick="toggleHold(4)">
+                    <div id="hold-4" class="hold-badge hidden">HOLD</div>
+                    <div id="card-4" class="poker-card back"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="poker-controls mt-10">
+            <div class="input-row">
+                <label>Stawka:</label>
+                <input type="number" id="poker-amount" class="dark-input" value="100">
+            </div>
+            <button id="btn-poker-deal" class="btn-accent btn-full-width" onclick="onPokerAction()">ROZDAJ (DEAL)</button>
+        </div>
+    </div>
+</section>
+                
                 <div class="social-column">
                     <section id="radio-panel" class="glass-panel">
                         <h2><i class="fa-solid fa-music"></i> Radio</h2>
