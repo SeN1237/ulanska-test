@@ -50,8 +50,20 @@ let portfolio = {
     startValue: 100, zysk: 0, totalValue: 0, prestigeLevel: 0 
 };
 
-const PRESTIGE_REQUIREMENTS = [15000, 30000, 60000, 120000];
-const CRYPTO_PRESTIGE_REQUIREMENT = 3; 
+// --- KONFIGURACJA PRESTIŻU I BLOKAD ---
+const PRESTIGE_REQUIREMENTS = [15000, 30000, 60000, 120000, 250000]; // 5 progów (0->1, 1->2... 4->5)
+const CRYPTO_PRESTIGE_REQUIREMENT = 4; // Krypto od poziomu 4
+
+const GAME_UNLOCKS = {
+    'betting': 0, // Dostępne dla wszystkich
+    'radio': 0,   // Dostępne dla wszystkich
+    'pvp': 0,     // Dostępne dla wszystkich
+    'casino': 1,  // Ruletka (Lvl 1)
+    'poker': 2,   // Video Poker (Lvl 2)
+    'plinko': 3,  // Plinko (Lvl 3)
+    'crash': 5    // Crash (Lvl 5)
+};
+
 const COMPANY_ORDER = ["ulanska", "rychbud", "brzozair", "cosmosanit", "nicorp", "igirium"];
 const CHART_COLORS = ['#00d2ff', '#FF6384', '#36A2EB', '#4BC0C0', '#9966FF', '#F0B90B', '#627EEA'];
 
@@ -71,7 +83,7 @@ let matchesCache = [];
 let activeDayTab = null; 
 let currentBetSelection = null; 
 
-// CRASH GAME VARS (NOWE)
+// CRASH GAME VARS
 let crashGameLoop;
 let crashMultiplier = 1.00;
 let crashIsRunning = false;
@@ -97,7 +109,7 @@ let unsubscribePvP = null;
 
 let dom = {};
 
-// --- FUNKCJE POMOCNICZE (Definicje przed użyciem) ---
+// --- FUNKCJE POMOCNICZE ---
 function generateInitialCandles(count, basePrice) {
     let data = []; let lastClose = basePrice || 1;
     let timestamp = new Date().getTime() - (count * 15000);
@@ -134,7 +146,16 @@ function updatePriceUI() {
 function checkCryptoAccess() {
     const isCrypto = market[currentCompanyId].type === 'crypto';
     const locked = isCrypto && portfolio.prestigeLevel < CRYPTO_PRESTIGE_REQUIREMENT;
-    if(dom.orderPanel) dom.orderPanel.classList.toggle("crypto-locked", locked);
+    
+    if(dom.orderPanel) {
+        dom.orderPanel.classList.toggle("crypto-locked", locked);
+        
+        // Aktualizacja tekstu w panelu, żeby odzwierciedlał nowy wymóg
+        const msgEl = dom.orderPanel.querySelector(".crypto-gate-message p");
+        if(msgEl && locked) {
+            msgEl.textContent = `Wymagany Prestiż ${CRYPTO_PRESTIGE_REQUIREMENT} (⭐️⭐️⭐️⭐️)`;
+        }
+    }
 }
 
 function updateTickerTape() {
@@ -174,7 +195,6 @@ onSnapshot(cenyDocRef, (docSnap) => {
     if (docSnap.exists()) {
         const aktualneCeny = docSnap.data();
         
-        // Mapowanie wsteczne dla starej bazy danych
         if(aktualneCeny['bartcoin'] && !aktualneCeny['nicorp']) {
             aktualneCeny['nicorp'] = aktualneCeny['bartcoin'];
         }
@@ -252,11 +272,7 @@ async function onResetPassword(e) {
 // --- FUNKCJA NAWIGACJI ---
 function onSelectView(e) {
     const viewName = e.currentTarget.dataset.view;
-    
-    // Aktualizacja przycisków
     dom.navButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.view === viewName));
-    
-    // Przełączanie widoków
     dom.views.forEach(view => {
         if (view.id === `view-${viewName}`) {
             view.classList.add("active");
@@ -266,8 +282,6 @@ function onSelectView(e) {
             setTimeout(() => { if(!view.classList.contains('active')) view.classList.add('hidden') }, 500);
         }
     });
-
-    // Jeśli wracamy na giełdę, odświeżamy wykres
     if (viewName === 'market' && chart) {
         chart.render();
     }
@@ -364,7 +378,7 @@ document.addEventListener("DOMContentLoaded", () => {
         pvpAmount: document.getElementById("pvp-amount"),
         pvpFeed: document.getElementById("pvp-feed"),
         
-        // CRASH GAME (NOWE)
+        // CRASH GAME
         crashCanvas: document.getElementById("crash-canvas"),
         crashMultiplierText: document.getElementById("crash-multiplier"),
         crashInfo: document.getElementById("crash-info"),
@@ -425,19 +439,28 @@ document.addEventListener("DOMContentLoaded", () => {
     if (currentUserId) showUserProfile(currentUserId);
     });
 
-    // --- OBSŁUGA ZAKŁADEK GIER (NOWE) ---
+    // --- OBSŁUGA ZAKŁADEK GIER (ZMODYFIKOWANA) ---
     const gameNavButtons = document.querySelectorAll('.game-nav-btn');
     const gameTabs = document.querySelectorAll('.game-tab-content');
 
     function switchGameTab(e) {
         const targetTab = e.currentTarget.dataset.gameTab;
 
-        // 1. Zaktualizuj przyciski (oznacz aktywny)
+        // --- SPRAWDZANIE POZIOMU PRESTIŻU ---
+        const requiredLevel = GAME_UNLOCKS[targetTab] || 0;
+        
+        if (portfolio.prestigeLevel < requiredLevel) {
+            const stars = '⭐️'.repeat(requiredLevel);
+            showMessage(`Wymagany poziom prestiżu: ${requiredLevel} (${stars})`, "error");
+            if(dom.audioError) dom.audioError.play().catch(()=>{});
+            return; // Blokada
+        }
+        // ------------------------------------
+
         gameNavButtons.forEach(btn => {
             btn.classList.toggle('active', btn.dataset.gameTab === targetTab);
         });
 
-        // 2. Zaktualizuj widoczność sekcji z grami
         gameTabs.forEach(tab => {
             if (tab.id === `tab-game-${targetTab}`) {
                 tab.classList.add('active');
@@ -462,18 +485,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const chatBadge = document.getElementById("chat-badge");
     const chatFeedRef = document.getElementById("chat-feed"); 
 
-    // Funkcja otwierania/zamykania
     function toggleChat() {
         if(!chatWindow) return;
-        
         chatWindow.classList.toggle("hidden");
-        
-        // Jeśli otwieramy czat
         if (!chatWindow.classList.contains("hidden")) {
-            // Ukryj czerwoną kropkę powiadomień
             if(chatBadge) chatBadge.classList.add("hidden");
-            
-            // Przewiń na dół
             setTimeout(() => {
                 if(chatFeedRef) chatFeedRef.scrollTop = chatFeedRef.scrollHeight;
             }, 100);
@@ -483,7 +499,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (chatFab) chatFab.addEventListener("click", toggleChat);
     if (closeChatBtn) closeChatBtn.addEventListener("click", toggleChat);
 
-    // Zamknij czat klikając poza nim (opcjonalne)
     document.addEventListener("click", (e) => {
         if (chatWindow && !chatWindow.classList.contains("hidden") && 
             !chatWindow.contains(e.target) && 
@@ -502,7 +517,6 @@ function listenToPortfolioData(userId) {
             portfolio.name = data.name;
             portfolio.cash = data.cash;
             
-            // Mapowanie shares w locie jeśli stare dane mają bartcoin
             let shares = data.shares || {};
             if(shares['bartcoin'] !== undefined) {
                 shares['nicorp'] = (shares['nicorp'] || 0) + shares['bartcoin'];
@@ -522,18 +536,15 @@ function listenToPortfolioData(userId) {
 function updatePortfolioUI() {
     if (!dom || !dom.username) return;
     
-    // 1. Aktualizacja nagłówka i statystyk tekstowych
     const stars = getPrestigeStars(portfolio.prestigeLevel);
     dom.username.innerHTML = `${portfolio.name} ${stars}`;
     
     dom.cash.textContent = formatujWalute(portfolio.cash);
     if(dom.entertainmentCash) dom.entertainmentCash.textContent = formatujWalute(portfolio.cash);
 
-    // 2. Generowanie listy aktywów (Poprawiona struktura HTML dla CSS)
     let html = "";
     let sharesValue = 0;
     
-    // Dane do wykresu
     const series = [portfolio.cash]; 
     const labels = ['Gotówka'];
 
@@ -543,14 +554,12 @@ function updatePortfolioUI() {
         const currentPrice = company ? company.price : 0;
         const value = amount * currentPrice;
 
-        // Dodajemy do wykresu tylko jeśli wartość > 0
         if (value > 0) {
             sharesValue += value;
             series.push(value);
             labels.push(company.name);
         }
 
-        // Generujemy wiersz tabeli z klasami pasującymi do nowego CSS
         html += `
             <div class="asset-row">
                 <span class="asset-name">${company ? company.name : cid}:</span>
@@ -560,10 +569,8 @@ function updatePortfolioUI() {
             </div>`;
     });
 
-    // Tylko tutaj wstawiamy wygenerowany HTML
     dom.sharesList.innerHTML = html;
 
-    // 3. Obliczenia całkowite
     const total = portfolio.cash + sharesValue;
     const profit = total - portfolio.startValue;
 
@@ -571,22 +578,21 @@ function updatePortfolioUI() {
     dom.totalProfit.textContent = formatujWalute(profit);
     dom.totalProfit.style.color = profit >= 0 ? "var(--green)" : "var(--red)";
 
-    // 4. Konfiguracja i renderowanie wykresu (Z sumą w środku)
     if (!portfolioChart) {
         portfolioChart = new ApexCharts(dom.portfolioChartContainer, {
             series: series,
             labels: labels,
             chart: { 
                 type: 'donut', 
-                height: 280, // Nieco większy
+                height: 280, 
                 background: 'transparent',
                 fontFamily: 'inherit'
             },
             colors: CHART_COLORS,
             theme: { mode: 'dark' },
-            stroke: { show: false }, // Usunięcie obramowania segmentów
-            dataLabels: { enabled: false }, // Wyłączenie cyferek na wykresie dla czystości
-            legend: { show: false }, // Ukrywamy legendę (bo mamy listę pod spodem)
+            stroke: { show: false }, 
+            dataLabels: { enabled: false }, 
+            legend: { show: false }, 
             plotOptions: {
                 pie: {
                     donut: {
@@ -609,7 +615,6 @@ function updatePortfolioUI() {
                                 color: '#888',
                                 fontSize: '14px',
                                 formatter: function (w) {
-                                    // Sumuje wszystkie wartości serii
                                     const sum = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
                                     return formatujWalute(sum);
                                 }
@@ -621,7 +626,6 @@ function updatePortfolioUI() {
         });
         portfolioChart.render();
     } else {
-        // Aktualizacja danych istniejącego wykresu
         portfolioChart.updateOptions({ series: series, labels: labels });
     }
 
@@ -643,7 +647,7 @@ function changeCompany(cid) {
 async function buyShares() { await tradeShares(true); }
 async function sellShares() { await tradeShares(false); }
 async function tradeShares(isBuy) {
-    if(dom.orderPanel.classList.contains("crypto-locked")) return showMessage("Wymagany poziom 3 prestiżu", "error");
+    if(dom.orderPanel.classList.contains("crypto-locked")) return showMessage("Wymagany wyższy poziom prestiżu", "error");
     const amount = parseInt(dom.amountInput.value);
     if(isNaN(amount) || amount <= 0) return showMessage("Błędna ilość", "error");
     const cid = currentCompanyId;
@@ -720,8 +724,6 @@ function startChartTicker() {
     }, 15000); 
 }
 
-// Funkcja initPortfolioChart została zintegrowana w updatePortfolioUI dla lepszego działania "total"
-
 // --- AUTH LOGIC START ---
 function startAuthListener() {
     onAuthStateChanged(auth, user => {
@@ -744,7 +746,6 @@ function startAuthListener() {
             listenToPvP();
             listenToActiveMatch();
             
-            // Default view
             dom.navButtons[0].click();
         } else {
             currentUserId = null;
@@ -753,7 +754,6 @@ function startAuthListener() {
             dom.authContainer.classList.remove("show-register");
             
             if (unsubscribePortfolio) unsubscribePortfolio();
-            // ... reszta unsubów ...
             chartHasStarted = false; chart = null; portfolioChart = null;
         }
     });
@@ -776,11 +776,11 @@ function onSellMax() { dom.amountInput.value = portfolio.shares[currentCompanyId
 function onSelectMarketType(e) {
     const type = e.target.dataset.marketType;
     
-    // --- NOWA BLOKADA KRYPTO ---
-    if (type === 'crypto' && portfolio.prestigeLevel < 3) {
-        e.preventDefault(); // Zatrzymaj kliknięcie
-        showMessage("Krypto wymaga 3 gwiazdek prestiżu! (Poziom 3)", "error");
-        return; // Nie przełączaj zakładki
+    // --- BLOKADA KRYPTO (Poziom 4) ---
+    if (type === 'crypto' && portfolio.prestigeLevel < CRYPTO_PRESTIGE_REQUIREMENT) {
+        e.preventDefault(); 
+        showMessage(`Krypto wymaga ${CRYPTO_PRESTIGE_REQUIREMENT} poziomu prestiżu!`, "error");
+        return; 
     }
     // ---------------------------
 
@@ -788,7 +788,6 @@ function onSelectMarketType(e) {
     dom.companySelector.classList.toggle("hidden", type !== 'stocks');
     dom.cryptoSelector.classList.toggle("hidden", type !== 'crypto');
     
-    // Domyślna firma po przełączeniu
     changeCompany(type === 'stocks' ? 'ulanska' : 'nicorp');
 }
 function onSelectOrderTab(e) {
@@ -805,24 +804,18 @@ function onSelectHistoryTab(e) {
 }
 
 // --- NEWSY I PLOTKI ---
-// --- NEWSY I PLOTKI (ZMODYFIKOWANE) ---
-
 function listenToMarketNews() {
     unsubscribeNews = onSnapshot(query(collection(db, "gielda_news"), orderBy("timestamp", "desc"), limit(10)), snap => {
-        // Czyścimy feed tylko przy pierwszym ładowaniu, żeby nie migało przy dodawaniu
         if (!initialNewsLoaded) dom.newsFeed.innerHTML = "";
         
         snap.docChanges().forEach(change => {
             if (change.type === 'added') {
                 const n = change.doc.data();
                 
-                // Jeśli to nowe powiadomienie (po załadowaniu strony), pokaż toast
                 if (initialNewsLoaded) showNotification(n.text, 'news', n.impactType);
 
-                // Ikona zależna od typu
                 const iconClass = n.impactType === 'positive' ? 'fa-arrow-trend-up' : 'fa-triangle-exclamation';
                 
-                // Generowanie HTML
                 const html = `
                     <div class="feed-item ${n.impactType}">
                         <div class="feed-icon"><i class="fa-solid ${iconClass}"></i></div>
@@ -835,10 +828,7 @@ function listenToMarketNews() {
                     </div>
                 `;
                 
-                // Dodajemy na górę listy
                 dom.newsFeed.insertAdjacentHTML('afterbegin', html);
-                
-                // Usuwamy nadmiarowe elementy z dołu (żeby nie zapchać pamięci)
                 if (dom.newsFeed.children.length > 10) {
                     dom.newsFeed.lastElementChild.remove();
                 }
@@ -855,7 +845,6 @@ function listenToRumors() {
             const r = d.data();
             const companyName = market[r.companyId] ? market[r.companyId].name : '???';
             
-            // Ikona i klasa zależna od sentymentu
             const impactClass = r.sentiment === 'positive' ? 'positive' : 'negative';
             const iconClass = r.sentiment === 'positive' ? 'fa-bullhorn' : 'fa-user-secret';
 
@@ -900,11 +889,9 @@ function listenToChat() {
             snap.docChanges().forEach(change => {
                 if (change.type === "added") {
                     const m = change.doc.data();
-                    // Jeśli wiadomość nie jest ode mnie
                     if (m.authorId !== currentUserId) {
                         showNotification(`${m.authorName}: ${m.text}`, 'chat');
                         
-                        // LOGIKA BADGE'A: Jeśli okno czatu jest ukryte, pokaż kropkę
                         const floatWindow = document.getElementById("floating-chat-window");
                         const badge = document.getElementById("chat-badge");
                         if (floatWindow && floatWindow.classList.contains("hidden") && badge) {
@@ -934,7 +921,6 @@ function listenToLeaderboard() {
         let r = 1;
         snap.forEach(d => {
             const u = d.data();
-            const profitValue = u.totalValue - u.startValue;
             dom.leaderboardList.innerHTML += `
                 <li class="${d.id === currentUserId ? 'highlight-me' : ''}">
                     <div onclick="showUserProfile('${d.id}')">
@@ -950,7 +936,7 @@ function listenToLeaderboard() {
 async function onPlaceLimitOrder(e) {
     e.preventDefault();
     if (!currentUserId) return;
-    if (dom.orderPanel.classList.contains("crypto-locked")) return showMessage("Wymagany poziom 3", "error");
+    if (dom.orderPanel.classList.contains("crypto-locked")) return showMessage("Wymagany wyższy poziom", "error");
     const type = dom.limitType.value;
     const amount = parseInt(dom.limitAmount.value);
     const limitPrice = parseFloat(dom.limitPrice.value);
@@ -975,12 +961,10 @@ async function onPlaceLimitOrder(e) {
 }
 
 function listenToLimitOrders(userId) {
-    // Usuń stary nasłuchiwacz jeśli istnieje (dobra praktyka)
     if (unsubscribeLimitOrders) unsubscribeLimitOrders();
 
     unsubscribeLimitOrders = onSnapshot(query(collection(db, "limit_orders"), where("userId", "==", userId), orderBy("timestamp", "desc")), snap => {
         dom.limitOrdersFeed.innerHTML = "";
-        
         if (snap.empty) {
             dom.limitOrdersFeed.innerHTML = "<p style='padding:10px; color:var(--text-muted); text-align:center;'>Brak aktywnych zleceń limit.</p>";
             return;
@@ -988,29 +972,23 @@ function listenToLimitOrders(userId) {
 
         snap.forEach(d => {
             const o = d.data();
-            
-            // Tworzymy kontener wiersza (taki sam jak w historii)
             const div = document.createElement("div");
             div.className = "history-row";
 
-            // Kolory dla typu
             const isBuy = o.type.includes("KUPNO");
             const typeClass = isBuy ? "h-buy" : "h-sell";
             const typeLabel = isBuy ? "KUPNO" : "SPRZED.";
 
-            // Formatowanie czasu
             let timeStr = "--:--";
             if (o.timestamp) {
                 timeStr = new Date(o.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             }
 
-            // Przycisk akcji (Anuluj) lub Status
             let actionHtml = `<span class="h-time">${o.status}</span>`;
             if (o.status === 'pending') {
                 actionHtml = `<button onclick="cancelLimit('${d.id}')" style="background: transparent; border: 1px solid var(--red); color: var(--red); padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8em; font-weight:bold;">ANULUJ</button>`;
             }
 
-            // Składamy HTML pasujący do kolumn Grid (4 kolumny zdefiniowane w CSS)
             div.innerHTML = `
                 <span class="h-col h-time">${timeStr}</span>
                 <span class="h-col h-type ${typeClass}">${typeLabel}</span>
@@ -1027,11 +1005,9 @@ function listenToLimitOrders(userId) {
 }
 window.cancelLimit = async function(id) { if(confirm("Anulować?")) await updateDoc(doc(db, "limit_orders", id), {status: "cancelled"}); };
 
-// --- NOWA LOGIKA BUKMACHERKI (Z TABELĄ I DNIAMI) ---
-
+// --- BUKMACHERKA ---
 function listenToActiveMatch() {
     if (unsubscribeMatch) unsubscribeMatch();
-    // Nasłuchujemy dokumentu z meczami
     unsubscribeMatch = onSnapshot(doc(db, "global", "zaklady"), (docSnap) => {
         if (docSnap.exists()) {
             matchesCache = docSnap.data().mecze || [];
@@ -1044,14 +1020,10 @@ function listenToActiveMatch() {
 
 function listenToActiveBets(userId) {
     if (unsubscribeActiveBets) unsubscribeActiveBets();
-    
-    // Pobieramy Twoje zakłady
     const q = query(collection(db, "active_bets"), where("userId", "==", userId), orderBy("createdAt", "desc"));
     
     unsubscribeActiveBets = onSnapshot(q, (snap) => {
         dom.activeBetsFeed.innerHTML = "";
-        
-        // Filtrujemy tylko zakłady "w toku"
         const pendingBets = snap.docs.filter(d => d.data().status === 'pending');
 
         if (pendingBets.length === 0) {
@@ -1061,28 +1033,18 @@ function listenToActiveBets(userId) {
 
         snap.forEach(d => {
             const bet = d.data();
-            
-            // Jeśli zakład nie jest pending, pomijamy go (ukrywamy)
             if (bet.status !== 'pending') return; 
 
-            // --- LOGIKA WYCIĄGANIA NAZWY DRUŻYNY ---
             let pickedTeamName = "???";
-            
-            // 1. Czyścimy tytuł (usuwamy ewentualne nawiasy [Kurs] itp., jeśli są)
-            // Zakładamy format: "Polska vs Niemcy"
             let cleanTitle = (bet.matchTitle || "").split(" [")[0]; 
-            
-            // 2. Dzielimy tytuł na dwie drużyny przy pomocy " vs "
             let teams = cleanTitle.split(" vs ");
 
             if (bet.betOn === 'draw') {
                 pickedTeamName = "REMIS";
             } else if (teams.length >= 2) {
-                // Mamy poprawne nazwy z tytułu
                 if (bet.betOn === 'teamA') pickedTeamName = teams[0].trim();
                 if (bet.betOn === 'teamB') pickedTeamName = teams[1].trim();
             } else {
-                // Zabezpieczenie (gdyby format tytułu był inny)
                 pickedTeamName = bet.betOn === 'teamA' ? 'Gospodarz' : 'Gość';
             }
 
@@ -1112,22 +1074,17 @@ function renderBettingPanel() {
         return;
     }
 
-    // 1. Grupowanie po dniach
     const matchesByDay = {};
     matchesCache.forEach(match => {
         const date = match.closeTime.toDate();
-        const dateKey = date.toISOString().split('T')[0]; // Format YYYY-MM-DD
+        const dateKey = date.toISOString().split('T')[0];
         if (!matchesByDay[dateKey]) matchesByDay[dateKey] = [];
         matchesByDay[dateKey].push(match);
     });
 
-    // Sortowanie dni
     const sortedDays = Object.keys(matchesByDay).sort();
-    
-    // Ustawienie aktywnego taba (jeśli null lub nieistniejący)
     if (!activeDayTab || !matchesByDay[activeDayTab]) activeDayTab = sortedDays[0];
 
-    // 2. Renderowanie Paska Dni (Nav)
     const navContainer = document.createElement("div");
     navContainer.className = "betting-days-nav";
 
@@ -1137,21 +1094,18 @@ function renderBettingPanel() {
         if (dayKey === activeDayTab) btn.classList.add("active");
         
         const dateObj = new Date(dayKey);
-        // Formatowanie daty na polski (np. Sobota, 26.11)
         const btnLabel = dateObj.toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric', month: 'numeric' });
         btn.textContent = btnLabel.charAt(0).toUpperCase() + btnLabel.slice(1);
         
         btn.onclick = () => { 
             activeDayTab = dayKey; 
-            renderBettingPanel(); // Przeładowanie widoku
+            renderBettingPanel();
         };
         navContainer.appendChild(btn);
     });
     dom.matchInfo.appendChild(navContainer);
 
-    // 3. Renderowanie Tabeli Meczów dla aktywnego dnia
     const dayMatches = matchesByDay[activeDayTab];
-    // Sortowanie po godzinie
     dayMatches.sort((a, b) => a.closeTime.seconds - b.closeTime.seconds);
 
     const table = document.createElement("table");
@@ -1177,19 +1131,16 @@ function renderBettingPanel() {
         const isClosed = match.status !== 'open';
         const isResolved = match.status === 'resolved';
 
-        // Kolumna Czasu
         let timeHtml = timeStr;
         if (isResolved) timeHtml = "Koniec";
         else if (isClosed) timeHtml = `<span class="match-live">LIVE</span>`;
 
-        // Kolumna Meczu
         let matchHtml = `<strong>${match.teamA}</strong> <small>vs</small> <strong>${match.teamB}</strong>`;
         if (isResolved) {
             let w = match.winner === 'draw' ? 'REMIS' : (match.winner === 'teamA' ? match.teamA : match.teamB);
             matchHtml += `<br><span class="match-finished">Wynik: ${w}</span>`;
         }
 
-        // Helper do przycisków - dodano style dla długich nazw
         const createBtn = (teamCode, odds, label) => `
             <button class="table-bet-btn" ${isClosed ? 'disabled' : ''}
                 onclick="selectBet('${match.id}', '${teamCode}', ${odds}, '${match.teamA} vs ${match.teamB} [${label}]')">
@@ -1197,7 +1148,6 @@ function renderBettingPanel() {
                 <small style="color:var(--accent-color); font-weight:bold; font-size:0.9em;">${odds.toFixed(2)}</small>
             </button>`;
 
-        // --- ZMIANA: UŻYWAMY NAZW DRUŻYN ZAMIAST 1, X, 2 ---
         const oddsHtml = `<div class="odds-btn-group">
             ${createBtn('teamA', match.oddsA, match.teamA)}
             ${createBtn('draw', match.oddsDraw, 'REMIS')}
@@ -1211,23 +1161,17 @@ function renderBettingPanel() {
     dom.matchInfo.appendChild(table);
 }
 
-// Funkcja globalna (na window) do obsługi kliknięcia w tabeli
 window.selectBet = function(id, team, odds, label) {
-    // *** POPRAWKA: ZAPAMIĘTUJEMY TYTUŁ MECZU ***
     currentBetSelection = { id, team, odds, matchTitle: label };
     
-    // Pokazujemy formularz
     dom.bettingForm.classList.remove("hidden");
     
-    // Wyciągamy samą nazwę meczu z labela (usuwamy nawiasy [1] itp.)
     const cleanLabel = label.split('[')[0].trim();
     
-    // Aktualizujemy tekst przycisku
     dom.placeBetButton.textContent = `Postaw na: ${cleanLabel} (Kurs: ${odds.toFixed(2)})`;
     dom.placeBetButton.style.background = "var(--green)";
     dom.placeBetButton.style.color = "#000";
     
-    // Scroll do formularza (dla wygody na mobile)
     dom.bettingForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     dom.betAmount.focus();
 };
@@ -1238,7 +1182,6 @@ async function onPlaceBet(e) {
     
     const amount = parseFloat(dom.betAmount.value);
     
-    // Walidacja
     if (isNaN(amount) || amount <= 0) return showMessage("Podaj poprawną kwotę", "error");
     if (amount > portfolio.cash) return showMessage("Brak gotówki", "error");
 
@@ -1249,21 +1192,18 @@ async function onPlaceBet(e) {
             
             if(userDoc.data().cash < amount) throw new Error("Brak środków (walidacja serwera)");
             
-            // Pobranie gotówki
             const newCash = userDoc.data().cash - amount;
-            // Aktualizacja wartości portfela (gotówka spada, akcje bez zmian)
             const newVal = calculateTotalValue(newCash, userDoc.data().shares);
             
             transaction.update(userRef, { cash: newCash, totalValue: newVal });
             
-            // Utworzenie zakładu (DODANO MATCH TITLE)
             const betRef = doc(collection(db, "active_bets"));
             transaction.set(betRef, {
                 userId: currentUserId,
                 userName: portfolio.name,
                 matchId: currentBetSelection.id,
-                matchTitle: currentBetSelection.matchTitle, // Zapisujemy nazwę meczu!
-                betOn: currentBetSelection.team, // 'teamA', 'teamB' lub 'draw'
+                matchTitle: currentBetSelection.matchTitle, 
+                betOn: currentBetSelection.team, 
                 odds: currentBetSelection.odds,
                 betAmount: amount,
                 matchResolveTime: null, 
@@ -1272,7 +1212,6 @@ async function onPlaceBet(e) {
             });
         });
 
-        // Dodanie wpisu do historii
         await addDoc(collection(db, "historia_transakcji"), {
             userId: currentUserId, userName: portfolio.name,
             type: "ZAKŁAD SPORTOWY", companyName: "Bukmacher",
@@ -1291,15 +1230,13 @@ async function onPlaceBet(e) {
 }
 
 // ==========================================
-// === SYSTEM PVP (ZSYNCHRONIZOWANA RULETKA 1:1 Z MAIN) ===
+// === SYSTEM PVP ===
 // ==========================================
 
-// Konfiguracja
 const playedAnimations = new Set(); 
 const CARD_WIDTH = 120; 
 const WINNER_INDEX = 60; 
 
-// --- FUNKCJA POMOCNICZA: Generator liczb na podstawie ID ---
 function getSeededRandom(seedStr) {
     let h = 0x811c9dc5;
     for (let i = 0; i < seedStr.length; i++) {
@@ -1313,7 +1250,6 @@ function getSeededRandom(seedStr) {
     }
 }
 
-// 1. Nasłuchiwanie aktywnych wyzwań
 function listenToPvP() {
     if (typeof unsubscribePvP !== 'undefined' && unsubscribePvP) unsubscribePvP();
 
@@ -1369,7 +1305,6 @@ function listenToPvP() {
     });
 }
 
-// 2. Tworzenie wyzwania
 async function onCreatePvP(e) {
     e.preventDefault();
     const amount = parseFloat(dom.pvpAmount.value);
@@ -1414,7 +1349,6 @@ async function onCreatePvP(e) {
     }
 }
 
-// 3. Dołączanie do walki
 window.joinPvP = async function(duelId, amount, opponentName) {
     if (!confirm(`Czy na pewno chcesz postawić ${formatujWalute(amount)} i walczyć z ${opponentName}? Szansa wygranej: 50%.`)) return;
     if (portfolio.cash < amount) return showMessage("Nie stać Cię na tę walkę!", "error");
@@ -1466,14 +1400,12 @@ window.joinPvP = async function(duelId, amount, opponentName) {
     }
 };
 
-// 4. Funkcja ANIMACJI (Zsynchronizowana)
 function triggerGlobalPvPAnimation(duel) {
     const container = document.getElementById('pvp-embedded-roulette');
     const strip = document.getElementById('roulette-strip');
     const winnerText = document.getElementById('pvp-roulette-winner');
     const title = document.getElementById('pvp-vs-title');
 
-    // Inicjalizacja generatora losowego opartego na ID walki
     const rng = getSeededRandom(duel.id);
 
     container.classList.remove('hidden');
@@ -1516,12 +1448,10 @@ function triggerGlobalPvPAnimation(duel) {
     
     const targetTranslate = (windowWidth / 2) - (winnerCenterPosition + randomOffset);
 
-    // Start animacji
     setTimeout(() => {
         strip.style.transition = "transform 5s cubic-bezier(0.15, 0.85, 0.35, 1.0)";
         strip.style.transform = `translateX(${targetTranslate}px)`;
         
-        // Wynik
         setTimeout(() => {
             if (duel.winner === portfolio.name) {
                 winnerText.textContent = "WYGRAŁEŚ!";
@@ -1537,7 +1467,6 @@ function triggerGlobalPvPAnimation(duel) {
             }
             winnerText.classList.add('animate-winner-text');
 
-            // Ukrycie
             setTimeout(() => {
                 container.classList.add('hidden'); 
                 if (currentUserId === duel.joinerId) {
@@ -1566,7 +1495,6 @@ window.selectBetType = function(type, value) {
     dom.casinoStatus.textContent = `Wybrano: ${value}`;
 };
 
-// --- RULETKA (Zaktualizowana do wersji animowanej) ---
 window.commitSpin = async function() {
     if (isSpinning) return;
     if (!currentUserId) return showMessage("Zaloguj się!", "error");
@@ -1579,12 +1507,10 @@ window.commitSpin = async function() {
     isSpinning = true;
     dom.casinoStatus.textContent = "Kręcimy... Powodzenia!";
     
-    // Blokada interfejsu
     const allBtns = document.querySelectorAll('.casino-btn, .num-btn, .spin-btn');
     allBtns.forEach(b => b.disabled = true);
     if(dom.amountInput) dom.amountInput.disabled = true;
 
-    // Reset widoku koła
     const innerRing = document.querySelector('.inner');
     const dataContainer = document.querySelector('.data');
     const resultNumberEl = document.querySelector('.result-number');
@@ -1595,7 +1521,6 @@ window.commitSpin = async function() {
     innerRing.classList.remove('rest');
     dataContainer.classList.remove('reveal');
 
-    // --- 1. LOSOWANIE WYNIKU (0-36) ---
     const winningNumber = Math.floor(Math.random() * 37);
     
     const redNumbers = [32, 19, 21, 25, 34, 27, 36, 30, 23, 5, 16, 1, 14, 9, 18, 7, 12, 3];
@@ -1603,7 +1528,6 @@ window.commitSpin = async function() {
     if (winningNumber === 0) resultColor = 'green';
     else if (redNumbers.includes(winningNumber)) resultColor = 'red';
 
-    // --- 2. START ANIMACJI ---
     setTimeout(() => {
         innerRing.setAttribute('data-spinto', winningNumber);
     }, 50);
@@ -1686,13 +1610,12 @@ function displayHistoryItem(feed, item, isGlobal) {
     const div = document.createElement("div");
     div.className = "history-row";
     
-    // 1. Ustalanie koloru i stylu akcji
     let actionClass = "h-neutral";
     let displayType = item.type;
 
     if (item.type.includes("KUPNO")) {
         actionClass = "h-buy";
-        displayType = "KUPNO"; // Skracamy tekst dla czytelności
+        displayType = "KUPNO"; 
     } else if (item.type.includes("SPRZEDAŻ")) {
         actionClass = "h-sell";
         displayType = "SPRZEDAŻ";
@@ -1701,12 +1624,10 @@ function displayHistoryItem(feed, item, isGlobal) {
         displayType = "ZAKŁAD";
     }
 
-    // 2. Pierwsza kolumna: Nazwa Gracza (Global) lub Godzina (Prywatna)
     let col1 = "";
     if (isGlobal) {
         col1 = `<span class="h-col h-user clickable-user" onclick="showUserProfile('${item.userId}')">${item.userName}</span>`;
     } else {
-        // Konwersja timestampa Firebase na godzinę
         let timeStr = "--:--";
         if (item.timestamp && item.timestamp.seconds) {
             const date = new Date(item.timestamp.seconds * 1000);
@@ -1715,7 +1636,6 @@ function displayHistoryItem(feed, item, isGlobal) {
         col1 = `<span class="h-col h-time">${timeStr}</span>`;
     }
 
-    // 3. Budowanie HTML
     div.innerHTML = `
         ${col1}
         <span class="h-col h-type ${actionClass}">${displayType}</span>
@@ -1729,13 +1649,11 @@ function displayHistoryItem(feed, item, isGlobal) {
 window.showUserProfile = async function(uid) {
     const d = (await getDoc(doc(db, "uzytkownicy", uid))).data();
     
-    // Wypełnianie danych
     dom.modalUsername.textContent = d.name;
     dom.modalTotalValue.textContent = formatujWalute(d.totalValue);
     dom.modalCash.textContent = formatujWalute(d.cash);
     dom.modalPrestigeLevel.textContent = d.prestigeLevel || 0;
     
-    // Lista akcji
     let sharesHtml = "";
     COMPANY_ORDER.forEach(cid => { 
         if((d.shares[cid]||0)>0) sharesHtml += `<p>${market[cid].name}: ${d.shares[cid]}</p>`; 
@@ -1744,34 +1662,29 @@ window.showUserProfile = async function(uid) {
     
     dom.modalOverlay.classList.remove("hidden");
 
-    // --- NAPRAWA PRZYCISKU AWANSU ---
     const isMe = (uid === currentUserId);
     const currentLvl = d.prestigeLevel || 0;
-    const nextRequirement = PRESTIGE_REQUIREMENTS[currentLvl]; // Pobierz wymóg dla obecnego poziomu
+    const nextRequirement = PRESTIGE_REQUIREMENTS[currentLvl];
 
-    // 1. Ukryj wszystko, jeśli to nie ja
     if (!isMe) {
         dom.prestigeButton.style.display = "none";
         dom.prestigeNextGoal.textContent = "";
-        dom.prestigeInfo.style.display = "none"; // Opcjonalnie ukryj info o prestiżu u innych
+        dom.prestigeInfo.style.display = "none"; 
     } 
-    // 2. Jeśli to ja, ale skończyły się poziomy (max level)
     else if (nextRequirement === undefined) {
         dom.prestigeButton.style.display = "none";
         dom.prestigeNextGoal.textContent = "Maksymalny Prestiż Osiągnięty!";
         dom.prestigeInfo.style.display = "block";
     } 
-    // 3. Jeśli to ja i mogę awansować (lub zbieram kasę)
     else {
         dom.prestigeButton.style.display = "block";
         dom.prestigeInfo.style.display = "block";
         dom.prestigeNextGoal.textContent = `Cel: ${formatujWalute(nextRequirement)}`;
         
-        // Odblokuj przycisk tylko jeśli mam dość kasy
         if (d.totalValue >= nextRequirement) {
             dom.prestigeButton.disabled = false;
             dom.prestigeButton.textContent = "AWANSUJ (Reset Konta)";
-            dom.prestigeButton.classList.add("btn-green"); // Dodatkowy efekt wizualny (opcjonalnie)
+            dom.prestigeButton.classList.add("btn-green"); 
         } else {
             dom.prestigeButton.disabled = true;
             dom.prestigeButton.textContent = "Za mało środków";
@@ -1789,18 +1702,15 @@ async function onPrestigeReset() {
             const d = (await t.get(ref)).data();
             const currentLvl = d.prestigeLevel || 0;
             
-            // Zabezpieczenie 1: Sprawdź czy istnieje kolejny poziom
             if (currentLvl >= PRESTIGE_REQUIREMENTS.length) {
                 throw new Error("Osiągnięto już maksymalny poziom!");
             }
 
-            // Zabezpieczenie 2: Sprawdź kasę po stronie serwera (w transakcji)
             const req = PRESTIGE_REQUIREMENTS[currentLvl];
             if (d.totalValue < req) {
                 throw new Error(`Brakuje środków! Wymagane: ${req}`);
             }
 
-            // Wykonaj reset i awans
             t.update(ref, { 
                 cash: 1000, 
                 shares: {ulanska:0, rychbud:0, brzozair:0, cosmosanit:0, nicorp:0, igirium:0},
@@ -1814,7 +1724,6 @@ async function onPrestigeReset() {
         dom.modalOverlay.classList.add("hidden");
         showMessage("Awans udany! Konto zresetowane.", "success");
         
-        // Efekt dźwiękowy (jeśli masz)
         if(dom.audioKaching) dom.audioKaching.play().catch(()=>{});
 
     } catch(e) {
@@ -1832,11 +1741,10 @@ function initCrashCanvas() {
     crashCtx = crashCanvas.getContext('2d');
     crashCtx.lineCap = 'round';
     crashCtx.lineJoin = 'round';
-    drawCrashFrame(true); // Rysuje stan początkowy
+    drawCrashFrame(true); 
 }
 
 async function onCrashAction() {
-    // 1. START GRY
     if (!crashIsRunning) {
         const amount = parseInt(dom.crashAmount.value);
         if (isNaN(amount) || amount <= 0) return showMessage("Podaj stawkę!", "error");
@@ -1844,20 +1752,17 @@ async function onCrashAction() {
         if (!currentUserId) return showMessage("Zaloguj się!", "error");
 
         try {
-            // Pobranie kasy z Firebase
             await runTransaction(db, async (t) => {
                 const userRef = doc(db, "uzytkownicy", currentUserId);
                 const userDoc = await t.get(userRef);
                 const d = userDoc.data();
                 if (d.cash < amount) throw new Error("Brak środków!");
                 
-                // Odejmujemy kasę na start
                 const newCash = d.cash - amount;
                 const newVal = calculateTotalValue(newCash, d.shares);
                 t.update(userRef, { cash: newCash, totalValue: newVal });
             });
 
-            // Start logiczny
             crashBetAmount = amount;
             startCrashGame();
 
@@ -1865,7 +1770,6 @@ async function onCrashAction() {
             showMessage(e.message, "error");
         }
     } 
-    // 2. WYPŁATA (CASHOUT)
     else if (crashIsRunning && !crashHasCashedOut) {
         doCrashCashout();
     }
@@ -1877,88 +1781,60 @@ function startCrashGame() {
     crashMultiplier = 1.00;
     crashCurvePoints = [{x: 0, y: crashCanvas.height}];
     
-    // Zmiana przycisku
     dom.btnCrashAction.textContent = "WYPŁAĆ!";
     dom.btnCrashAction.classList.add("btn-cashout");
     dom.crashMultiplierText.classList.remove("crashed", "cashed-out");
     dom.crashInfo.textContent = `Lecimy za ${formatujWalute(crashBetAmount)}...`;
     if(dom.crashAmount) dom.crashAmount.disabled = true;
 
-    // Ustalanie punktu katastrofy (Prosty algorytm)
-    // Generuje liczbę od 1.00 do nieskończoności z rozkładem wykładniczym (jak na prawdziwych stronach crash)
-    // 1% szans na instant crash (1.00)
     const r = Math.random();
     crashCurrentCrashPoint = Math.max(1.00, (0.99 / (1 - r))); 
-    
-    // Ograniczenie dla bezpieczeństwa symulatora (np. max 100x żeby nie zbankrutować gry za szybko)
     if(crashCurrentCrashPoint > 50) crashCurrentCrashPoint = 50 + Math.random() * 50;
 
-    // Pętla gry
     let time = 0;
     clearInterval(crashGameLoop);
     
     crashGameLoop = setInterval(() => {
-        time += 0.05; // Czas w sekundach (przybliżony)
+        time += 0.05; 
         
-        // Funkcja wzrostu mnożnika (wykładnicza)
         crashMultiplier = Math.pow(Math.E, 0.06 * time); 
 
-        // Rysowanie
         updateCrashCurve();
         
-        // UI
         dom.crashMultiplierText.textContent = crashMultiplier.toFixed(2) + "x";
         
-        // Jeśli wypłacono, pokaż ile wygrał
         if(crashHasCashedOut) {
-             // Gra leci dalej w tle wizualnie, ale przycisk jest nieaktywny
         } else {
              dom.btnCrashAction.textContent = `WYPŁAĆ (${formatujWalute(crashBetAmount * crashMultiplier)})`;
         }
 
-        // Sprawdzenie Crashed
         if (crashMultiplier >= crashCurrentCrashPoint) {
             endCrashGame();
         }
 
-    }, 16); // ~60 FPS
+    }, 16); 
 }
 
 function updateCrashCurve() {
     const width = crashCanvas.width;
     const height = crashCanvas.height;
 
-    // Obliczanie punktu na wykresie
-    // X rośnie liniowo, Y rośnie wykładniczo (odwrócone, bo Y=0 to góra)
-    // Skalujemy, żeby wykres był ładny
-    
-    const stepX = (crashMultiplier - 1) * 80; // Skalowanie X
-    const stepY = (crashMultiplier - 1) * 60; // Skalowanie Y
+    const stepX = (crashMultiplier - 1) * 80; 
+    const stepY = (crashMultiplier - 1) * 60; 
 
     const newX = stepX; 
     const newY = height - stepY;
 
-    // Przesuwanie kamery (jeśli wykres wyjdzie poza ekran)
     let offsetX = 0;
     let offsetY = 0;
     
     if (newX > width - 50) offsetX = newX - (width - 50);
-    if (newY < 50) offsetY = 50 - newY; // Przesuwamy w dół
+    if (newY < 50) offsetY = 50 - newY; 
 
-    // Rysowanie tła
     crashCtx.clearRect(0, 0, width, height);
     
-    // Rysowanie Linii
     crashCtx.beginPath();
-    crashCtx.moveTo(0 - offsetX, height + offsetY); // Start w lewym dolnym rogu (z uwzg. offsetu)
-    
-    // Rysujemy parabolę
-    // Uproszczona wersja: rysujemy kwadratową funkcję
-    for(let i=0; i<=stepX; i+=5) {
-        // y = x^2 (z grubsza)
-        // Odtwarzamy krzywą na podstawie historii lub prostej funkcji matematycznej pasującej do mnożnika
-        // Tutaj dla prostoty rysujemy linię do aktualnego punktu
-    }
+    crashCtx.moveTo(0 - offsetX, height + offsetY); 
     
     crashCtx.quadraticCurveTo(
         (newX / 2) - offsetX, height + offsetY, 
@@ -1966,14 +1842,12 @@ function updateCrashCurve() {
     );
     
     crashCtx.lineWidth = 4;
-    crashCtx.strokeStyle = crashHasCashedOut ? '#00e676' : '#00d2ff'; // Zielony jeśli wypłacone, niebieski jeśli gra
+    crashCtx.strokeStyle = crashHasCashedOut ? '#00e676' : '#00d2ff'; 
     crashCtx.stroke();
 
-    // Rysowanie Rakiety
     crashCtx.save();
     crashCtx.translate(newX - offsetX, newY + offsetY);
-    // Kąt rakiety:
-    const angle = -Math.PI / 4 - (crashMultiplier * 0.05); // Rakieta unosi się coraz bardziej pionowo
+    const angle = -Math.PI / 4 - (crashMultiplier * 0.05); 
     crashCtx.rotate(Math.max(angle, -Math.PI / 2)); 
     
     crashCtx.font = "30px Arial";
@@ -1989,21 +1863,16 @@ async function doCrashCashout() {
     const winAmount = crashBetAmount * cashoutMultiplier;
     const profit = winAmount - crashBetAmount;
 
-    // Zmiana UI
     dom.btnCrashAction.textContent = "WYPŁACONO!";
     dom.btnCrashAction.classList.remove("btn-cashout");
     dom.btnCrashAction.style.background = "#333";
     
-    // --- POPRAWKA TUTAJ (było crashOverlayText, jest crashMultiplierText) ---
     dom.crashMultiplierText.classList.add("cashed-out"); 
-    // -----------------------------------------------------------------------
     
     dom.crashInfo.textContent = `Wygrałeś ${formatujWalute(winAmount)}!`;
 
-    // Dźwięk
     if(dom.audioKaching) dom.audioKaching.play().catch(()=>{});
 
-    // Zapis do Firebase
     try {
         await runTransaction(db, async (t) => {
             const userRef = doc(db, "uzytkownicy", currentUserId);
@@ -2030,13 +1899,11 @@ function endCrashGame() {
     dom.crashMultiplierText.classList.add("crashed");
     dom.crashMultiplierText.classList.remove("cashed-out");
     
-    // UI Reset
     dom.btnCrashAction.textContent = "START";
     dom.btnCrashAction.classList.remove("btn-cashout");
-    dom.btnCrashAction.style.background = ""; // Reset do domyślnego
+    dom.btnCrashAction.style.background = ""; 
     if(dom.crashAmount) dom.crashAmount.disabled = false;
 
-    // Rysowanie wybuchu
     drawCrashFrame(false, true);
 
     if(!crashHasCashedOut) {
@@ -2044,7 +1911,6 @@ function endCrashGame() {
         if(dom.audioError) dom.audioError.play().catch(()=>{});
     }
 
-    // Dodaj do historii
     addCrashHistory(crashCurrentCrashPoint);
 }
 
@@ -2062,10 +1928,6 @@ function drawCrashFrame(reset = false, exploded = false) {
     }
 
     if(exploded) {
-        // Efekt wybuchu (prosty tekst na ostatniej pozycji)
-        // Dla uproszczenia czyścimy i rysujemy na środku
-        // W idealnym świecie rysowalibyśmy wybuch w miejscu rakiety, 
-        // ale zmienne offsetu są lokalne w pętli.
         crashCtx.save();
         crashCtx.fillStyle = "rgba(255, 0, 0, 0.3)";
         crashCtx.fillRect(0, 0, w, h);
@@ -2089,13 +1951,11 @@ function addCrashHistory(mult) {
     if(dom.crashHistoryList.children.length > 10) dom.crashHistoryList.lastChild.remove();
 }
 // ==========================================
-// === PLINKO GAME LOGIC (16 Lines) ===
+// === PLINKO GAME LOGIC ===
 // ==========================================
 
-// Konfiguracja Plinko (16 rzędów - wysokie ryzyko)
 const PLINKO_ROWS = 16;
 const PLINKO_MULTIPLIERS = [110, 41, 10, 5, 3, 1.5, 1, 0.5, 0.3, 0.5, 1, 1.5, 3, 5, 10, 41, 110];
-// Kolory do UI zależne od wartości
 const PLINKO_COLORS = PLINKO_MULTIPLIERS.map(m => {
     if(m >= 10) return 'pb-ultra';
     if(m >= 3) return 'pb-high';
@@ -2108,15 +1968,11 @@ let plinkoBalls = [];
 let plinkoPins = [];
 let plinkoEngineRunning = false;
 
-// Inicjalizacja przy starcie strony
 document.addEventListener("DOMContentLoaded", () => {
-    // ... istniejące listenery ...
-    
-    // Dodaj to do sekcji listenerów w DOMContentLoaded:
     const btnPlinko = document.getElementById("btn-plinko-drop");
     if(btnPlinko) btnPlinko.addEventListener("click", onPlinkoDrop);
     
-    setTimeout(initPlinko, 1000); // Małe opóźnienie, żeby DOM się załadował
+    setTimeout(initPlinko, 1000); 
 });
 
 function initPlinko() {
@@ -2124,7 +1980,6 @@ function initPlinko() {
     if(!plinkoCanvas) return;
     plinkoCtx = plinkoCanvas.getContext('2d');
 
-    // Generowanie HTML dla bucketów (mnożników) na dole
     const bucketContainer = document.getElementById("plinko-multipliers");
     if(bucketContainer) {
         bucketContainer.innerHTML = "";
@@ -2137,22 +1992,13 @@ function initPlinko() {
         });
     }
 
-    // Obliczanie pozycji kołków (Pins)
-    // Canvas: 800x600. Piramida musi być symetryczna.
     plinkoPins = [];
-    const startX = 400; // Środek canvasa
-    const startY = 50;  // Margines od góry
-    const gapX = 40;    // Odstęp poziomy
-    const gapY = 32;    // Odstęp pionowy
+    const startX = 400; 
+    const startY = 50;  
+    const gapX = 40;    
+    const gapY = 32;    
 
     for (let row = 0; row <= PLINKO_ROWS; row++) {
-        // W każdym rzędzie jest 'row + 3' kołków (dla estetyki startujemy szerzej)
-        // Ale standard Plinko: Rząd 0 ma 3 kołki? Nie, klasycznie Rząd 0 ma 1 przerwę -> 2 kołki?
-        // Uproszczenie: Rząd i ma i+3 kołków, żeby kulka miała gdzie wpadać.
-        
-        // Zrobimy klasyczną piramidę: Rząd 0 = 3 piny. Rząd 16 = 19 pinów.
-        // Ilość "dziur" = row + 2.
-        
         const pinsInRow = row + 3; 
         const rowWidth = (pinsInRow - 1) * gapX;
         const xOffset = startX - (rowWidth / 2);
@@ -2161,12 +2007,11 @@ function initPlinko() {
             plinkoPins.push({
                 x: xOffset + (col * gapX),
                 y: startY + (row * gapY),
-                r: 4 // Promień kołka
+                r: 4 
             });
         }
     }
 
-    // Start pętli renderowania
     if(!plinkoEngineRunning) {
         plinkoEngineRunning = true;
         requestAnimationFrame(plinkoLoop);
@@ -2179,21 +2024,16 @@ async function onPlinkoDrop() {
 
     if (isNaN(amount) || amount <= 0) return showMessage("Podaj stawkę!", "error");
     if (!currentUserId) return showMessage("Zaloguj się!", "error");
-    // Szybkie sprawdzenie lokalne (zabezpieczenie UI)
     if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
 
-    // Efekt kliknięcia (opcjonalny)
     const btn = document.getElementById("btn-plinko-drop");
     btn.style.transform = "scale(0.95)";
     setTimeout(() => btn.style.transform = "scale(1)", 100);
 
-    // 1. Logika Finansowa (Pobranie kasy)
     try {
-        // Optimistic UI update (zdejmujemy kasę od razu wizualnie)
         portfolio.cash -= amount;
         updatePortfolioUI();
 
-        // Transaction w tle
         await runTransaction(db, async (t) => {
             const userRef = doc(db, "uzytkownicy", currentUserId);
             const userDoc = await t.get(userRef);
@@ -2205,11 +2045,9 @@ async function onPlinkoDrop() {
             t.update(userRef, { cash: newCash, totalValue: newVal });
         });
 
-        // 2. Logika Gry (Obliczenie trasy)
         spawnPlinkoBall(amount);
 
     } catch (e) {
-        // Rollback UI w razie błędu
         portfolio.cash += amount;
         updatePortfolioUI();
         showMessage(e.message, "error");
@@ -2217,28 +2055,24 @@ async function onPlinkoDrop() {
 }
 
 function spawnPlinkoBall(betAmount) {
-    // Generowanie ścieżki (0 = Lewo, 1 = Prawo)
-    // Binomial distribution: Suma losowań określa indeks końcowy.
     let path = [];
     let finalBucketIndex = 0;
 
     for(let i = 0; i < PLINKO_ROWS; i++) {
-        // 50/50 szansy na odbicie w prawo
         const dir = Math.random() > 0.5 ? 1 : 0;
         path.push(dir);
         finalBucketIndex += dir;
     }
 
-    // Utworzenie obiektu kulki
     plinkoBalls.push({
-        x: 400 + (Math.random() * 4 - 2), // Lekki rozrzut startowy
+        x: 400 + (Math.random() * 4 - 2), 
         y: 20,
         vx: 0,
         vy: 0,
         radius: 6,
-        color: '#ff00cc', // Neon pink
-        path: path,         // Zaplanowana trasa
-        currentRow: 0,      // Obecny etap
+        color: '#ff00cc', 
+        path: path,         
+        currentRow: 0,      
         finished: false,
         bet: betAmount,
         bucketIndex: finalBucketIndex
@@ -2246,10 +2080,8 @@ function spawnPlinkoBall(betAmount) {
 }
 
 function plinkoLoop() {
-    // Czyszczenie
     plinkoCtx.clearRect(0, 0, plinkoCanvas.width, plinkoCanvas.height);
 
-    // Rysowanie Kołków (Pins)
     plinkoCtx.fillStyle = "white";
     plinkoCtx.beginPath();
     plinkoPins.forEach(p => {
@@ -2258,7 +2090,6 @@ function plinkoLoop() {
     });
     plinkoCtx.fill();
 
-    // Rysowanie i fizyka kulek
     const gravity = 0.25;
     const gapX = 40;
     const gapY = 32;
@@ -2273,46 +2104,27 @@ function plinkoLoop() {
             continue;
         }
 
-        // Prosta fizyka wizualna (Interpolacja trasy)
-        // Kulka "spada" do docelowego kołka w danym rzędzie
-        
-        // Cel X dla obecnego rzędu:
-        // Środek piramidy przesuwa się.
-        // W rzędzie 'r', środek to startX.
-        // Pozycja relatywna kulki to suma ruchów w prawo minus połowa rzędu.
-        
-        // Uproszczony algorytm wizualny (Target Seeking):
-        // Obliczamy gdzie kulka POWINNA być w oparciu o currentRow i path.
-        
-        // Sprawdzamy czy kulka minęła linię Y obecnego rzędu
         const targetRowY = startY + (b.currentRow * gapY);
         
         if (b.y >= targetRowY) {
-            // Decyzja o odbiciu (Visual Bounce)
             if (b.currentRow < PLINKO_ROWS) {
                 const moveRight = b.path[b.currentRow] === 1;
-                // Nadajemy prędkość w bok zależnie od ścieżki
-                // Dodajemy trochę losowości (noise) żeby wyglądało naturalnie
                 b.vx = (moveRight ? 1.5 : -1.5) + (Math.random() * 0.4 - 0.2);
-                b.vy = -1.5; // Odbicie w górę przy uderzeniu w kołek
+                b.vy = -1.5; 
                 b.currentRow++;
             } else {
-                // Koniec gry - kulka wpada do bucketu
                 finishPlinkoBall(b);
                 b.finished = true;
                 continue;
             }
         }
 
-        // Fizyka
         b.vy += gravity;
         b.x += b.vx;
         b.y += b.vy;
 
-        // Tłumienie poziome (opór powietrza)
         b.vx *= 0.98;
 
-        // Rysowanie kulki
         plinkoCtx.beginPath();
         plinkoCtx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
         plinkoCtx.fillStyle = b.color;
@@ -2330,27 +2142,21 @@ async function finishPlinkoBall(ball) {
     const winAmount = ball.bet * multiplier;
     const profit = winAmount - ball.bet;
 
-    // Animacja bucketu
     const bucketEl = document.getElementById(`plinko-bucket-${ball.bucketIndex}`);
     if(bucketEl) {
         bucketEl.classList.add("hit");
         setTimeout(() => bucketEl.classList.remove("hit"), 300);
     }
 
-    // Dźwięk
     if(multiplier >= 10) {
         if(dom.audioKaching) {
              dom.audioKaching.currentTime = 0;
              dom.audioKaching.play().catch(()=>{});
         }
-    } else if (multiplier < 1) {
-         // Opcjonalnie cichy dźwięk "pyk"
-    }
+    } 
 
-    // Historia
     addPlinkoHistory(multiplier);
 
-    // Zapis wygranej do bazy (tylko jeśli wygrana > 0, technicznie zawsze coś wraca, ale profit może być ujemny)
     try {
         await runTransaction(db, async (t) => {
             const userRef = doc(db, "uzytkownicy", currentUserId);
@@ -2359,7 +2165,7 @@ async function finishPlinkoBall(ball) {
             
             const newCash = d.cash + winAmount;
             const newZysk = (d.zysk || 0) + profit;
-            const newVal = calculateTotalValue(newCash, d.shares); // Helper z głównego kodu
+            const newVal = calculateTotalValue(newCash, d.shares); 
 
             t.update(userRef, { cash: newCash, zysk: newZysk, totalValue: newVal });
         });
@@ -2378,7 +2184,7 @@ function addPlinkoHistory(mult) {
     if(!list) return;
 
     const item = document.createElement("div");
-    item.className = "crash-history-item"; // Używamy tej samej klasy co w Crash dla spójności
+    item.className = "crash-history-item"; 
     item.textContent = mult + "x";
     
     if(mult < 1) item.classList.add("bad");
@@ -2399,10 +2205,9 @@ const POKER_VALUES = { '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '
 let pokerDeck = [];
 let pokerHand = [];
 let pokerHeld = [false, false, false, false, false];
-let pokerState = 'idle'; // 'idle', 'deal' (waiting for draw)
+let pokerState = 'idle'; 
 let pokerBet = 0;
 
-// Paytable Multipliers (Standard 9/6 or custom)
 const POKER_PAYTABLE = {
     'ROYAL FLUSH': 250,
     'STRAIGHT FLUSH': 50,
@@ -2415,7 +2220,6 @@ const POKER_PAYTABLE = {
     'JACKS OR BETTER': 1
 };
 
-// 1. Initialize / Reset
 function createDeck() {
     pokerDeck = [];
     for(let s of POKER_SUITS) {
@@ -2423,65 +2227,55 @@ function createDeck() {
             pokerDeck.push({ rank: r, suit: s, val: POKER_VALUES[r], color: (s === '♥' || s === '♦') ? 'red' : 'black' });
         }
     }
-    // Shuffle
     for (let i = pokerDeck.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [pokerDeck[i], pokerDeck[j]] = [pokerDeck[j], pokerDeck[i]];
     }
 }
 
-// 2. Global Function for Button Click
 window.onPokerAction = async function() {
     const btn = document.getElementById("btn-poker-deal");
     const amountInput = document.getElementById("poker-amount");
     const statusText = document.getElementById("poker-result-text");
 
-    // ... początek funkcji ...
     if (pokerState === 'idle') {
-        // --- PHASE 1: DEAL ---
         const amount = parseInt(amountInput.value);
         if (isNaN(amount) || amount <= 0) return showMessage("Podaj stawkę!", "error");
         if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
         if (!currentUserId) return showMessage("Zaloguj się!", "error");
 
         try {
-            // ... (tutaj jest kod transakcji Firebase - zostaw bez zmian) ...
             await runTransaction(db, async (t) => {
-                // ... (zostaw bez zmian) ...
+                 const userRef = doc(db, "uzytkownicy", currentUserId);
+                 const userDoc = await t.get(userRef);
+                 if(userDoc.data().cash < amount) throw new Error("Brak środków");
+                 const newCash = userDoc.data().cash - amount;
+                 t.update(userRef, { cash: newCash, totalValue: calculateTotalValue(newCash, userDoc.data().shares) });
             });
             
-            // Logic Start
             pokerBet = amount;
             amountInput.disabled = true;
             createDeck();
             pokerHand = [];
             pokerHeld = [false, false, false, false, false];
             
-            // --- TUTAJ DODAJ TEN KOD (POPRAWKA) ---
-            // Resetujemy wizualny stan kart (opuszczamy je na dół i usuwamy ramki)
             for(let i=0; i<5; i++) {
                 const cardEl = document.getElementById(`card-${i}`);
                 const badgeEl = document.getElementById(`hold-${i}`);
                 
-                // Reset stylów
                 if(cardEl) {
                     cardEl.style.transform = "translateY(0)";
-                    cardEl.style.border = ""; // Usuwa żółtą ramkę inline
-                    cardEl.classList.add('back'); // Przywraca tył karty przed animacją (opcjonalne)
+                    cardEl.style.border = ""; 
+                    cardEl.classList.add('back'); 
                 }
-                // Ukrycie napisu HOLD
                 if(badgeEl) badgeEl.classList.add('hidden');
             }
-            // ---------------------------------------
             
-            // Deal 5 cards
             for(let i=0; i<5; i++) pokerHand.push(pokerDeck.pop());
 
-            // Render
             renderPokerCards();
             resetPaytableHighlight();
             
-            // Update UI State
             pokerState = 'deal';
             btn.textContent = "WYMIEŃ (DRAW)";
             btn.style.background = "var(--accent-color)";
@@ -2492,37 +2286,30 @@ window.onPokerAction = async function() {
         }
 
     } else if (pokerState === 'deal') {
-// ... reszta kodu bez zmian ...
-        // --- PHASE 2: DRAW ---
         
-        // Replace unheld cards
         for(let i=0; i<5; i++) {
             if(!pokerHeld[i]) {
                 pokerHand[i] = pokerDeck.pop();
             }
         }
 
-        renderPokerCards(); // Show final hand
+        renderPokerCards(); 
 
-        // Evaluate
         const result = evaluatePokerHand(pokerHand);
         
-        // Handle Winnings
         let winAmount = 0;
-        let profit = 0 - pokerBet; // Default loss
+        let profit = 0 - pokerBet; 
 
         if (result.win) {
             const multiplier = POKER_PAYTABLE[result.handName];
             winAmount = pokerBet * multiplier;
             profit = winAmount - pokerBet;
 
-            // Visuals
             statusText.textContent = `${result.handName}! WYGRANA: ${formatujWalute(winAmount)}`;
-            statusText.style.color = "#00e676"; // Green
+            statusText.style.color = "#00e676"; 
             highlightPaytableRow(result.handName);
             if(dom.audioKaching) { dom.audioKaching.currentTime=0; dom.audioKaching.play().catch(()=>{}); }
 
-            // DB Update
             try {
                 await runTransaction(db, async (t) => {
                     const userRef = doc(db, "uzytkownicy", currentUserId);
@@ -2540,20 +2327,17 @@ window.onPokerAction = async function() {
             if(dom.audioError) dom.audioError.play().catch(()=>{});
         }
 
-        // Reset UI State
         pokerState = 'idle';
         btn.textContent = "ROZDAJ (DEAL)";
-        btn.style.background = ""; // Default
+        btn.style.background = ""; 
         amountInput.disabled = false;
         
-        // Clear holds visually for next round (data is cleared on deal)
         document.querySelectorAll('.hold-badge').forEach(el => el.classList.add('hidden'));
     }
 }
 
-// 3. Toggle Hold
 window.toggleHold = function(index) {
-    if (pokerState !== 'deal') return; // Can only hold after deal, before draw
+    if (pokerState !== 'deal') return; 
     
     pokerHeld[index] = !pokerHeld[index];
     
@@ -2571,13 +2355,11 @@ window.toggleHold = function(index) {
     }
 }
 
-// 4. Render Cards
 function renderPokerCards() {
     for(let i=0; i<5; i++) {
         const cardEl = document.getElementById(`card-${i}`);
         const card = pokerHand[i];
         
-        // Remove 'back' class to flip
         cardEl.className = `poker-card ${card.color}`;
         cardEl.innerHTML = `
             <div class="card-rank">${card.rank}</div>
@@ -2586,17 +2368,13 @@ function renderPokerCards() {
     }
 }
 
-// 5. Hand Evaluation Logic
 function evaluatePokerHand(hand) {
-    // Sort by value
     const sorted = [...hand].sort((a, b) => a.val - b.val);
     const ranks = sorted.map(c => c.val);
     const suits = sorted.map(c => c.suit);
 
-    // Helpers
     const isFlush = suits.every(s => s === suits[0]);
     
-    // Straight check
     let isStraight = true;
     for(let i=0; i<4; i++) {
         if(ranks[i+1] !== ranks[i] + 1) {
@@ -2604,42 +2382,21 @@ function evaluatePokerHand(hand) {
             break; 
         }
     }
-    // Special Ace Low Straight (A, 2, 3, 4, 5) -> Ranks are 2,3,4,5,14
     if (!isStraight && ranks.join(',') === '2,3,4,5,14') isStraight = true;
 
-    // Count frequencies
     const counts = {};
     ranks.forEach(r => counts[r] = (counts[r] || 0) + 1);
     const countValues = Object.values(counts);
 
-    // Logic Tree
-    // 1. Royal Flush (Straight + Flush + Ace High + 10 Low)
     if (isFlush && isStraight && ranks[0] === 10 && ranks[4] === 14) return { win: true, handName: 'ROYAL FLUSH' };
-    
-    // 2. Straight Flush
     if (isFlush && isStraight) return { win: true, handName: 'STRAIGHT FLUSH' };
-    
-    // 3. Four of a Kind
     if (countValues.includes(4)) return { win: true, handName: 'FOUR OF A KIND' };
-    
-    // 4. Full House (3 + 2)
     if (countValues.includes(3) && countValues.includes(2)) return { win: true, handName: 'FULL HOUSE' };
-    
-    // 5. Flush
     if (isFlush) return { win: true, handName: 'FLUSH' };
-    
-    // 6. Straight
     if (isStraight) return { win: true, handName: 'STRAIGHT' };
-    
-    // 7. Three of a Kind
     if (countValues.includes(3)) return { win: true, handName: 'THREE OF A KIND' };
-    
-    // 8. Two Pairs
     if (countValues.filter(c => c === 2).length === 2) return { win: true, handName: 'TWO PAIRS' };
-    
-    // 9. Jacks or Better (Pair of J, Q, K, A)
     if (countValues.includes(2)) {
-        // Find which ranks are pairs
         for(const [rank, count] of Object.entries(counts)) {
             if (count === 2 && parseInt(rank) >= 11) {
                 return { win: true, handName: 'JACKS OR BETTER' };
@@ -2650,9 +2407,7 @@ function evaluatePokerHand(hand) {
     return { win: false, handName: '' };
 }
 
-// 6. UI Helpers
 function highlightPaytableRow(handName) {
-    // Find row containing span with text == handName
     const rows = document.querySelectorAll('.pay-row');
     rows.forEach(row => {
         if(row.firstElementChild.textContent === handName) {
