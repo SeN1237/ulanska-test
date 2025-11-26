@@ -1101,12 +1101,12 @@ input:focus, select:focus { border-color: var(--accent-color); }
     to { transform: scale(1); opacity: 1; }
 }
 /* ========================================= */
-/* === NAPRAWA KOMUNIKATU "HANDEL ZABLOKOWANY" === */
+/* === NAPRAWA KOMUNIKATU "HANDEL ZABLOKOWANY" (FINALNA) === */
 /* ========================================= */
 
-/* 1. Domyślnie UKRYWAMY komunikat o blokadzie */
+/* 1. Domyślnie UKRYWAMY komunikat o blokadzie (używamy !important dla pewności) */
 .crypto-gate-message {
-    display: none; 
+    display: none !important; 
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -1119,24 +1119,17 @@ input:focus, select:focus { border-color: var(--accent-color); }
 .crypto-gate-message i {
     font-size: 3rem;
     margin-bottom: 15px;
-    color: var(--text-muted);
+    color: var(--red); /* Kłódka na czerwono */
 }
 
-/* 2. Logika klasy .crypto-locked (nadawanej przez JS) */
-
-/* Jeśli panel MA klasę .crypto-locked -> POKAŻ komunikat */
+/* 2. POKAŻ komunikat TYLKO gdy panel ma klasę .crypto-locked */
 #order-panel.crypto-locked .crypto-gate-message {
-    display: flex;
+    display: flex !important;
     animation: fadeIn 0.3s ease;
 }
 
-/* Jeśli panel MA klasę .crypto-locked -> UKRYJ formularze i przyciski */
+/* 3. UKRYJ formularze i przyciski gdy jest blokada */
 #order-panel.crypto-locked .order-tabs,
 #order-panel.crypto-locked .order-container {
     display: none !important;
-}
-
-/* Opcjonalnie: Zmiana koloru kłódki na czerwony dla lepszego efektu */
-#order-panel.crypto-locked .crypto-gate-message i {
-    color: var(--red);
 }
