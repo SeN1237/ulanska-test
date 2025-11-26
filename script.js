@@ -51,7 +51,7 @@ let portfolio = {
 };
 
 // --- KONFIGURACJA PRESTIŻU I BLOKAD ---
-const PRESTIGE_REQUIREMENTS = [15000, 30000, 60000, 200000, 500000]; // 5 progów (0->1, 1->2... 4->5)
+const PRESTIGE_REQUIREMENTS = [50000, 100000, 150000, 250000, 500000]; // 5 progów (0->1, 1->2... 4->5)
 const CRYPTO_PRESTIGE_REQUIREMENT = 4; // Krypto od poziomu 4
 
 const GAME_UNLOCKS = {
