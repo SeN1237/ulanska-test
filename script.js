@@ -425,6 +425,32 @@ document.addEventListener("DOMContentLoaded", () => {
     if (currentUserId) showUserProfile(currentUserId);
     });
 
+    // --- OBSŁUGA ZAKŁADEK GIER (NOWE) ---
+    const gameNavButtons = document.querySelectorAll('.game-nav-btn');
+    const gameTabs = document.querySelectorAll('.game-tab-content');
+
+    function switchGameTab(e) {
+        const targetTab = e.currentTarget.dataset.gameTab;
+
+        // 1. Zaktualizuj przyciski (oznacz aktywny)
+        gameNavButtons.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.gameTab === targetTab);
+        });
+
+        // 2. Zaktualizuj widoczność sekcji z grami
+        gameTabs.forEach(tab => {
+            if (tab.id === `tab-game-${targetTab}`) {
+                tab.classList.add('active');
+            } else {
+                tab.classList.remove('active');
+            }
+        });
+    }
+
+    gameNavButtons.forEach(btn => {
+        btn.addEventListener('click', switchGameTab);
+    });
+    
     // CRASH LISTENERS
     if(dom.btnCrashAction) dom.btnCrashAction.addEventListener("click", onCrashAction);
     if(dom.crashCanvas) initCrashCanvas(); 
