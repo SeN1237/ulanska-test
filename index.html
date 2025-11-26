@@ -253,269 +253,268 @@
 
         <div id="view-entertainment" class="view-section">
             
-            <div class="entertainment-wallet-bar glass-panel">
-                <span>Dostępna gotówka: <strong id="entertainment-cash-display" class="cash-highlight">--.-- zł</strong></span>
-            </div>
+    <div class="entertainment-wallet-bar glass-panel">
+        <span>Dostępna gotówka: <strong id="entertainment-cash-display" class="cash-highlight">--.-- zł</strong></span>
+    </div>
 
-            <div class="entertainment-grid">
-                
-                <div class="games-column">
-                    
-                    <section id="betting-panel" class="glass-panel">
-                        <div class="panel-head">
-                            <h2><i class="fa-solid fa-futbol"></i> Bukmacherka</h2>
-                        </div>
-                        
-                        <div id="match-info">
-                            <p>Ładowanie oferty...</p>
-                        </div>
+    <div class="games-nav-scroll glass-panel" style="padding: 10px; display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; margin-bottom: 20px;">
+        <button class="game-nav-btn active" data-game-tab="betting"><i class="fa-solid fa-futbol"></i> Bukmacher</button>
+        <button class="game-nav-btn" data-game-tab="casino"><i class="fa-solid fa-dharmachakra"></i> Ruletka</button>
+        <button class="game-nav-btn" data-game-tab="crash"><i class="fa-solid fa-rocket"></i> Crash</button>
+        <button class="game-nav-btn" data-game-tab="pvp"><i class="fa-solid fa-khanda"></i> PvP</button>
+        <button class="game-nav-btn" data-game-tab="plinko"><i class="fa-solid fa-circle-nodes"></i> Plinko</button>
+        <button class="game-nav-btn" data-game-tab="poker"><i class="fa-solid fa-diamond"></i> Poker</button>
+        <button class="game-nav-btn" data-game-tab="radio"><i class="fa-solid fa-music"></i> Radio</button>
+    </div>
 
-                        <form id="betting-form" class="hidden mt-10" style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">
-                            <h4 style="margin: 0 0 10px 0; color: var(--accent-color);">Twoj typ:</h4>
-                            
-                            <select id="bet-team" style="display: none;"></select>
-                            
-                            <label for="bet-amount" style="display:block; margin-bottom:5px;">Stawka (zł):</label>
-                            <input type="number" id="bet-amount" placeholder="np. 100" min="1" step="0.01" class="full-input" style="width: 100%; margin-bottom: 10px;">
-                            
-                            <button type="submit" id="place-bet-button" class="btn-accent" style="width: 100%;">Zatwierdź Zakład</button>
-                        </form>
+    <div class="games-content-container">
 
-                        <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
-                        <h3>Twoje Aktywne Kupony</h3>
-                        <div id="active-bets-feed" class="feed-box history-feed mt-10">
-                            <p>...brak aktywnych zakładów...</p>
-                        </div>
-                    </section>
+        <div id="tab-game-betting" class="game-tab-content active">
+            <section id="betting-panel" class="glass-panel">
+                <div class="panel-head">
+                    <h2><i class="fa-solid fa-futbol"></i> Bukmacherka</h2>
+                </div>
+                <div id="match-info"><p>Ładowanie oferty...</p></div>
+                <form id="betting-form" class="hidden mt-10" style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">
+                    <h4 style="margin: 0 0 10px 0; color: var(--accent-color);">Twój typ:</h4>
+                    <select id="bet-team" style="display: none;"></select>
+                    <label for="bet-amount" style="display:block; margin-bottom:5px;">Stawka (zł):</label>
+                    <input type="number" id="bet-amount" placeholder="np. 100" min="1" step="0.01" class="full-input" style="width: 100%; margin-bottom: 10px;">
+                    <button type="submit" id="place-bet-button" class="btn-accent" style="width: 100%;">Zatwierdź Zakład</button>
+                </form>
+                <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+                <h3>Twoje Aktywne Kupony</h3>
+                <div id="active-bets-feed" class="feed-box history-feed mt-10">
+                    <p>...brak aktywnych zakładów...</p>
+                </div>
+            </section>
+        </div>
 
-                    <section id="casino-panel" class="glass-panel center-content">
-                        <h2><i class="fa-solid fa-dharmachakra"></i> Ruletka</h2>
-                        <div class="casino-wrapper">
-                            <div class="main-roulette">
-                                <div class="plate" id="plate">
-                                    <ul class="inner">
-                                        <li class="number"><label><input type="radio" name="pit" value="32" /><span class="pit">32</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="15" /><span class="pit">15</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="19" /><span class="pit">19</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="4" /><span class="pit">4</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="21" /><span class="pit">21</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="2" /><span class="pit">2</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="25" /><span class="pit">25</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="17" /><span class="pit">17</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="34" /><span class="pit">34</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="6" /><span class="pit">6</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="27" /><span class="pit">27</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="13" /><span class="pit">13</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="36" /><span class="pit">36</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="11" /><span class="pit">11</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="30" /><span class="pit">30</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="8" /><span class="pit">8</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="23" /><span class="pit">23</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="10" /><span class="pit">10</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="5" /><span class="pit">5</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="24" /><span class="pit">24</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="16" /><span class="pit">16</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="33" /><span class="pit">33</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="1" /><span class="pit">1</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="20" /><span class="pit">20</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="14" /><span class="pit">14</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="31" /><span class="pit">31</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="9" /><span class="pit">9</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="22" /><span class="pit">22</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="18" /><span class="pit">18</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="29" /><span class="pit">29</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="7" /><span class="pit">7</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="28" /><span class="pit">28</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="12" /><span class="pit">12</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="35" /><span class="pit">35</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="3" /><span class="pit">3</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="26" /><span class="pit">26</span></label></li>
-                                        <li class="number"><label><input type="radio" name="pit" value="0" /><span class="pit">0</span></label></li>
-                                    </ul>
-                                    <div class="data">
-                                        <div class="data-inner">
-                                            <div class="mask">Grać!</div>
-                                            <div class="result">
-                                                <div class="result-number">--</div>
-                                                <div class="result-color">--</div>
-                                            </div>
-                                        </div>
+        <div id="tab-game-casino" class="game-tab-content">
+            <section id="casino-panel" class="glass-panel center-content">
+                <h2><i class="fa-solid fa-dharmachakra"></i> Ruletka</h2>
+                <div class="casino-wrapper">
+                    <div class="main-roulette">
+                        <div class="plate" id="plate">
+                            <ul class="inner">
+                                <li class="number"><label><input type="radio" name="pit" value="32" /><span class="pit">32</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="15" /><span class="pit">15</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="19" /><span class="pit">19</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="4" /><span class="pit">4</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="21" /><span class="pit">21</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="2" /><span class="pit">2</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="25" /><span class="pit">25</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="17" /><span class="pit">17</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="34" /><span class="pit">34</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="6" /><span class="pit">6</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="27" /><span class="pit">27</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="13" /><span class="pit">13</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="36" /><span class="pit">36</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="11" /><span class="pit">11</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="30" /><span class="pit">30</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="8" /><span class="pit">8</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="23" /><span class="pit">23</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="10" /><span class="pit">10</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="5" /><span class="pit">5</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="24" /><span class="pit">24</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="16" /><span class="pit">16</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="33" /><span class="pit">33</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="1" /><span class="pit">1</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="20" /><span class="pit">20</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="14" /><span class="pit">14</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="31" /><span class="pit">31</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="9" /><span class="pit">9</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="22" /><span class="pit">22</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="18" /><span class="pit">18</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="29" /><span class="pit">29</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="7" /><span class="pit">7</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="28" /><span class="pit">28</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="12" /><span class="pit">12</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="35" /><span class="pit">35</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="3" /><span class="pit">3</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="26" /><span class="pit">26</span></label></li>
+                                <li class="number"><label><input type="radio" name="pit" value="0" /><span class="pit">0</span></label></li>
+                            </ul>
+                            <div class="data">
+                                <div class="data-inner">
+                                    <div class="mask">Grać!</div>
+                                    <div class="result">
+                                        <div class="result-number">--</div>
+                                        <div class="result-color">--</div>
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                    <div class="casino-controls">
+                        <p id="casino-status">Wybierz pole i kręć!</p>
+                        <div class="bet-row">
+                            <input type="number" id="casino-amount" class="dark-input" placeholder="Kwota" value="100">
+                        </div>
+                        <div class="bet-row">
+                            <button class="casino-btn btn-red" onclick="selectBetType('color', 'red')">🔴 x2</button>
+                            <button class="casino-btn btn-black" onclick="selectBetType('color', 'black')">⚫ x2</button>
+                            <button class="casino-btn btn-green" onclick="selectBetType('color', 'green')">🟢 x36</button>
+                        </div>
+                        <div class="bet-numbers-grid">
+                            <button class="num-btn num-0" onclick="selectBetType('number', 0)">0</button>
+                            <script>
+                                const reds = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+                                for(let i=1; i<=36; i++) {
+                                    let c = reds.includes(i) ? 'num-red' : 'num-black';
+                                    document.write(`<button class="num-btn ${c} num-${i}" onclick="selectBetType('number', ${i})">${i}</button>`);
+                                }
+                            </script>
+                        </div>
+                        <button id="spin-button" class="btn-accent spin-btn" onclick="commitSpin()">ZAKRĘĆ!</button>
+                    </div>
+                    <div class="previous-results">
+                        <ol class="previous-list" id="previous-list"></ol>
+                    </div>
+                </div>
+            </section>
+        </div>
 
-                            <div class="casino-controls">
-                                <p id="casino-status">Wybierz pole i kręć!</p>
-                                <div class="bet-row">
-                                    <input type="number" id="casino-amount" class="dark-input" placeholder="Kwota" value="100">
-                                </div>
-                                <div class="bet-row">
-                                    <button class="casino-btn btn-red" onclick="selectBetType('color', 'red')">🔴 x2</button>
-                                    <button class="casino-btn btn-black" onclick="selectBetType('color', 'black')">⚫ x2</button>
-                                    <button class="casino-btn btn-green" onclick="selectBetType('color', 'green')">🟢 x36</button>
-                                </div>
-                                <div class="bet-numbers-grid">
-                                    <button class="num-btn num-0" onclick="selectBetType('number', 0)">0</button>
-                                    <script>
-                                        const reds = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
-                                        for(let i=1; i<=36; i++) {
-                                            let c = reds.includes(i) ? 'num-red' : 'num-black';
-                                            document.write(`<button class="num-btn ${c} num-${i}" onclick="selectBetType('number', ${i})">${i}</button>`);
-                                        }
-                                    </script>
-                                </div>
-                                <button id="spin-button" class="btn-accent spin-btn" onclick="commitSpin()">ZAKRĘĆ!</button>
+        <div id="tab-game-crash" class="game-tab-content">
+            <section id="crash-panel" class="glass-panel center-content">
+                <div class="panel-head">
+                    <h2><i class="fa-solid fa-rocket"></i> Crash (Rakieta)</h2>
+                </div>
+                <div class="crash-wrapper">
+                    <div class="crash-display">
+                        <canvas id="crash-canvas" width="400" height="250"></canvas>
+                        <div class="crash-overlay-text" id="crash-multiplier">1.00x</div>
+                        <div class="crash-info" id="crash-info">Postaw i leć!</div>
+                    </div>
+                    <div class="crash-controls">
+                        <div class="input-row">
+                            <input type="number" id="crash-amount" class="dark-input full-input" placeholder="Stawka" value="100">
+                        </div>
+                        <button id="btn-crash-action" class="btn-accent btn-full-width mt-10">START</button>
+                    </div>
+                    <div class="crash-history-bar">
+                        <span>Ostatnie:</span>
+                        <div id="crash-history-list" class="crash-history-items"></div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div id="tab-game-pvp" class="game-tab-content">
+            <section id="pvp-panel" class="glass-panel">
+                <h2><i class="fa-solid fa-khanda"></i> Pojedynki PvP (50/50)</h2>
+                <form id="pvp-create-form" class="mt-10">
+                    <div class="input-row">
+                        <input type="number" id="pvp-amount" placeholder="Stawka (min. 1000)" class="full-input">
+                        <button type="submit" class="btn-accent">Stwórz</button>
+                    </div>
+                </form>
+                <div id="pvp-feed" class="feed-box mt-10"></div>
+                <div id="pvp-embedded-roulette" class="hidden">
+                        <h3 id="pvp-vs-title" class="pvp-title-embedded">VS</h3>
+                        <div class="roulette-window embedded">
+                            <div class="roulette-marker"></div>
+                            <div id="roulette-strip" class="roulette-strip"></div>
+                        </div>
+                        <h3 id="pvp-roulette-winner" class="pvp-winner-text">...</h3>
+                </div>
+            </section>
+        </div>
+
+        <div id="tab-game-plinko" class="game-tab-content">
+            <section id="plinko-panel" class="glass-panel center-content">
+                <div class="panel-head">
+                    <h2><i class="fa-solid fa-circle-nodes"></i> Plinko</h2>
+                </div>
+                <div class="plinko-wrapper">
+                    <div class="plinko-game-area">
+                        <canvas id="plinko-canvas" width="800" height="600"></canvas>
+                        <div id="plinko-multipliers" class="plinko-multipliers-row"></div>
+                    </div>
+                    <div class="plinko-controls">
+                        <div class="plinko-stats">
+                            <span>Stawka:</span>
+                            <input type="number" id="plinko-amount" class="dark-input" placeholder="Kwota" value="100">
+                        </div>
+                        <div class="plinko-settings">
+                            <label>Ryzyko: <span style="color:var(--accent-color)">Wysokie (16 linii)</span></label>
+                        </div>
+                        <button id="btn-plinko-drop" class="btn-accent btn-full-width mt-10">PUŚĆ KULKĘ</button>
+                    </div>
+                    <div class="crash-history-bar" style="margin-top: 10px;">
+                        <span>Ostatnie:</span>
+                        <div id="plinko-history-list" class="crash-history-items"></div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div id="tab-game-poker" class="game-tab-content">
+            <section id="poker-panel" class="glass-panel center-content">
+                <div class="panel-head">
+                    <h2><i class="fa-solid fa-diamond"></i> Video Poker</h2>
+                </div>
+                <div class="poker-wrapper">
+                    <div class="poker-screen">
+                        <div class="poker-paytable">
+                            <div class="pay-row highlight-800"><span>ROYAL FLUSH</span><span>x250</span></div> 
+                            <div class="pay-row highlight-50"><span>STRAIGHT FLUSH</span><span>x50</span></div>
+                            <div class="pay-row highlight-25"><span>FOUR OF A KIND</span><span>x25</span></div>
+                            <div class="pay-row highlight-9"><span>FULL HOUSE</span><span>x9</span></div>
+                            <div class="pay-row highlight-6"><span>FLUSH</span><span>x6</span></div>
+                            <div class="pay-row highlight-4"><span>STRAIGHT</span><span>x4</span></div>
+                            <div class="pay-row highlight-3"><span>THREE OF A KIND</span><span>x3</span></div>
+                            <div class="pay-row highlight-2"><span>TWO PAIRS</span><span>x2</span></div>
+                            <div class="pay-row highlight-1"><span>JACKS OR BETTER</span><span>x1</span></div>
+                        </div>
+                        <div class="poker-status-bar">
+                            <span id="poker-result-text">INSERT COIN</span>
+                        </div>
+                        <div class="poker-cards-container">
+                            <div class="poker-card-wrapper" onclick="toggleHold(0)">
+                                <div id="hold-0" class="hold-badge hidden">HOLD</div>
+                                <div id="card-0" class="poker-card back"></div>
                             </div>
-                            <div class="previous-results">
-                                <ol class="previous-list" id="previous-list"></ol>
+                            <div class="poker-card-wrapper" onclick="toggleHold(1)">
+                                <div id="hold-1" class="hold-badge hidden">HOLD</div>
+                                <div id="card-1" class="poker-card back"></div>
+                            </div>
+                            <div class="poker-card-wrapper" onclick="toggleHold(2)">
+                                <div id="hold-2" class="hold-badge hidden">HOLD</div>
+                                <div id="card-2" class="poker-card back"></div>
+                            </div>
+                            <div class="poker-card-wrapper" onclick="toggleHold(3)">
+                                <div id="hold-3" class="hold-badge hidden">HOLD</div>
+                                <div id="card-3" class="poker-card back"></div>
+                            </div>
+                            <div class="poker-card-wrapper" onclick="toggleHold(4)">
+                                <div id="hold-4" class="hold-badge hidden">HOLD</div>
+                                <div id="card-4" class="poker-card back"></div>
                             </div>
                         </div>
-                    </section>
-                    
-                    <section id="crash-panel" class="glass-panel center-content">
-                        <div class="panel-head">
-                            <h2><i class="fa-solid fa-rocket"></i> Crash (Rakieta)</h2>
+                    </div>
+                    <div class="poker-controls mt-10">
+                        <div class="input-row">
+                            <label>Stawka:</label>
+                            <input type="number" id="poker-amount" class="dark-input" value="100">
                         </div>
-                        
-                        <div class="crash-wrapper">
-                            <div class="crash-display">
-                                <canvas id="crash-canvas" width="400" height="250"></canvas>
-                                <div class="crash-overlay-text" id="crash-multiplier">1.00x</div>
-                                <div class="crash-info" id="crash-info">Postaw i leć!</div>
-                            </div>
+                        <button id="btn-poker-deal" class="btn-accent btn-full-width" onclick="onPokerAction()">ROZDAJ (DEAL)</button>
+                    </div>
+                </div>
+            </section>
+        </div>
 
-                            <div class="crash-controls">
-                                <div class="input-row">
-                                    <input type="number" id="crash-amount" class="dark-input full-input" placeholder="Stawka" value="100">
-                                </div>
-                                <button id="btn-crash-action" class="btn-accent btn-full-width mt-10">START</button>
-                            </div>
+        <div id="tab-game-radio" class="game-tab-content">
+            <section id="radio-panel" class="glass-panel">
+                <h2><i class="fa-solid fa-music"></i> Radio</h2>
+                <div class="video-container">
+                    <iframe width="100%" height="200" src="https://www.youtube.com/embed/N2iGDpu-3ZI?si=9cOCpOaC0hfUCehx" frameborder="0" allowfullscreen></iframe>
+                </div>
+            </section>
+        </div>
 
-                            <div class="crash-history-bar">
-                                <span>Ostatnie:</span>
-                                <div id="crash-history-list" class="crash-history-items"></div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section id="pvp-panel" class="glass-panel">
-                        <h2><i class="fa-solid fa-khanda"></i> Pojedynki PvP (50/50)</h2>
-                        <form id="pvp-create-form" class="mt-10">
-                            <div class="input-row">
-                                <input type="number" id="pvp-amount" placeholder="Stawka (min. 1000)" class="full-input">
-                                <button type="submit" class="btn-accent">Stwórz</button>
-                            </div>
-                        </form>
-                        <div id="pvp-feed" class="feed-box mt-10"></div>
-                        <div id="pvp-embedded-roulette" class="hidden">
-                             <h3 id="pvp-vs-title" class="pvp-title-embedded">VS</h3>
-                             <div class="roulette-window embedded">
-                                 <div class="roulette-marker"></div>
-                                 <div id="roulette-strip" class="roulette-strip"></div>
-                             </div>
-                             <h3 id="pvp-roulette-winner" class="pvp-winner-text">...</h3>
-                        </div>
-                    </section>
-                    
-                    <section id="plinko-panel" class="glass-panel center-content">
-    <div class="panel-head">
-        <h2><i class="fa-solid fa-circle-nodes"></i> Plinko</h2>
     </div>
-
-    <div class="plinko-wrapper">
-        <div class="plinko-game-area">
-            <canvas id="plinko-canvas" width="800" height="600"></canvas>
-            <div id="plinko-multipliers" class="plinko-multipliers-row"></div>
-        </div>
-
-        <div class="plinko-controls">
-            <div class="plinko-stats">
-                <span>Stawka:</span>
-                <input type="number" id="plinko-amount" class="dark-input" placeholder="Kwota" value="100">
-            </div>
-            
-            <div class="plinko-settings">
-                <label>Ryzyko: <span style="color:var(--accent-color)">Wysokie (16 linii)</span></label>
-            </div>
-
-            <button id="btn-plinko-drop" class="btn-accent btn-full-width mt-10">PUŚĆ KULKĘ</button>
-        </div>
-        
-        <div class="crash-history-bar" style="margin-top: 10px;">
-            <span>Ostatnie:</span>
-            <div id="plinko-history-list" class="crash-history-items"></div>
-        </div>
-    </div>
-</section>
-                </div>
-                    
-                <section id="poker-panel" class="glass-panel center-content">
-    <div class="panel-head">
-        <h2><i class="fa-solid fa-diamond"></i> Video Poker</h2>
-    </div>
-
-    <div class="poker-wrapper">
-        <div class="poker-screen">
-            
-            <div class="poker-paytable">
-                <div class="pay-row highlight-800"><span>ROYAL FLUSH</span><span>x250</span></div> <div class="pay-row highlight-50"><span>STRAIGHT FLUSH</span><span>x50</span></div>
-                <div class="pay-row highlight-25"><span>FOUR OF A KIND</span><span>x25</span></div>
-                <div class="pay-row highlight-9"><span>FULL HOUSE</span><span>x9</span></div>
-                <div class="pay-row highlight-6"><span>FLUSH</span><span>x6</span></div>
-                <div class="pay-row highlight-4"><span>STRAIGHT</span><span>x4</span></div>
-                <div class="pay-row highlight-3"><span>THREE OF A KIND</span><span>x3</span></div>
-                <div class="pay-row highlight-2"><span>TWO PAIRS</span><span>x2</span></div>
-                <div class="pay-row highlight-1"><span>JACKS OR BETTER</span><span>x1</span></div>
-            </div>
-
-            <div class="poker-status-bar">
-                <span id="poker-result-text">INSERT COIN</span>
-            </div>
-
-            <div class="poker-cards-container">
-                <div class="poker-card-wrapper" onclick="toggleHold(0)">
-                    <div id="hold-0" class="hold-badge hidden">HOLD</div>
-                    <div id="card-0" class="poker-card back"></div>
-                </div>
-                <div class="poker-card-wrapper" onclick="toggleHold(1)">
-                    <div id="hold-1" class="hold-badge hidden">HOLD</div>
-                    <div id="card-1" class="poker-card back"></div>
-                </div>
-                <div class="poker-card-wrapper" onclick="toggleHold(2)">
-                    <div id="hold-2" class="hold-badge hidden">HOLD</div>
-                    <div id="card-2" class="poker-card back"></div>
-                </div>
-                <div class="poker-card-wrapper" onclick="toggleHold(3)">
-                    <div id="hold-3" class="hold-badge hidden">HOLD</div>
-                    <div id="card-3" class="poker-card back"></div>
-                </div>
-                <div class="poker-card-wrapper" onclick="toggleHold(4)">
-                    <div id="hold-4" class="hold-badge hidden">HOLD</div>
-                    <div id="card-4" class="poker-card back"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="poker-controls mt-10">
-            <div class="input-row">
-                <label>Stawka:</label>
-                <input type="number" id="poker-amount" class="dark-input" value="100">
-            </div>
-            <button id="btn-poker-deal" class="btn-accent btn-full-width" onclick="onPokerAction()">ROZDAJ (DEAL)</button>
-        </div>
-    </div>
-</section>
-                
-                <div class="social-column">
-                    <section id="radio-panel" class="glass-panel">
-                        <h2><i class="fa-solid fa-music"></i> Radio</h2>
-                        <div class="video-container">
-                            <iframe width="100%" height="200" src="https://www.youtube.com/embed/N2iGDpu-3ZI?si=9cOCpOaC0hfUCehx" frameborder="0" allowfullscreen></iframe>
-                        </div>
-                    </section>
-                </div>
-            </div>
-        </div>
+</div>
 
         <div id="view-info" class="view-section">
              <div class="info-grid">
