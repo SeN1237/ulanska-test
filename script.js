@@ -842,12 +842,53 @@ async function onPlaceLimitOrder(e) {
 }
 
 function listenToLimitOrders(userId) {
+    // Usuń stary nasłuchiwacz jeśli istnieje (dobra praktyka)
+    if (unsubscribeLimitOrders) unsubscribeLimitOrders();
+
     unsubscribeLimitOrders = onSnapshot(query(collection(db, "limit_orders"), where("userId", "==", userId), orderBy("timestamp", "desc")), snap => {
         dom.limitOrdersFeed.innerHTML = "";
-        if(snap.empty) dom.limitOrdersFeed.innerHTML = "<p>Brak zleceń.</p>";
+        
+        if (snap.empty) {
+            dom.limitOrdersFeed.innerHTML = "<p style='padding:10px; color:var(--text-muted); text-align:center;'>Brak aktywnych zleceń limit.</p>";
+            return;
+        }
+
         snap.forEach(d => {
             const o = d.data();
-            dom.limitOrdersFeed.innerHTML += `<p>${o.type} ${o.companyName} (${o.amount}szt @ ${o.limitPrice}) - ${o.status} <button onclick="cancelLimit('${d.id}')">X</button></p>`;
+            
+            // Tworzymy kontener wiersza (taki sam jak w historii)
+            const div = document.createElement("div");
+            div.className = "history-row";
+
+            // Kolory dla typu
+            const isBuy = o.type.includes("KUPNO");
+            const typeClass = isBuy ? "h-buy" : "h-sell";
+            const typeLabel = isBuy ? "KUPNO" : "SPRZED.";
+
+            // Formatowanie czasu
+            let timeStr = "--:--";
+            if (o.timestamp) {
+                timeStr = new Date(o.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            }
+
+            // Przycisk akcji (Anuluj) lub Status
+            let actionHtml = `<span class="h-time">${o.status}</span>`;
+            if (o.status === 'pending') {
+                actionHtml = `<button onclick="cancelLimit('${d.id}')" style="background: transparent; border: 1px solid var(--red); color: var(--red); padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8em; font-weight:bold;">ANULUJ</button>`;
+            }
+
+            // Składamy HTML pasujący do kolumn Grid (4 kolumny zdefiniowane w CSS)
+            div.innerHTML = `
+                <span class="h-col h-time">${timeStr}</span>
+                <span class="h-col h-type ${typeClass}">${typeLabel}</span>
+                <span class="h-col h-asset">
+                    ${o.companyName}
+                    <br><span style="font-size:0.8em; color:var(--text-muted); font-weight:normal;">${o.amount} szt. po ${o.limitPrice} zł</span>
+                </span>
+                <span class="h-col h-val" style="text-align:right;">${actionHtml}</span>
+            `;
+
+            dom.limitOrdersFeed.appendChild(div);
         });
     });
 }
