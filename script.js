@@ -900,50 +900,50 @@ function listenToActiveMatch() {
 }
 
 // *** NOWA FUNKCJA DO NASŁUCHIWANIA TWOICH KUPONÓW ***
+// W pliku script.js znajdź i podmień całą funkcję listenToActiveBets:
+
 function listenToActiveBets(userId) {
     if (unsubscribeActiveBets) unsubscribeActiveBets();
     const q = query(collection(db, "active_bets"), where("userId", "==", userId), orderBy("createdAt", "desc"));
+    
     unsubscribeActiveBets = onSnapshot(q, (snap) => {
         dom.activeBetsFeed.innerHTML = "";
-        if (snap.empty) {
-            dom.activeBetsFeed.innerHTML = "<p>Brak aktywnych zakładów.</p>";
+        
+        // Sprawdzamy, czy są jakiekolwiek zakłady w toku
+        const pendingBets = snap.docs.filter(d => d.data().status === 'pending');
+
+        if (pendingBets.length === 0) {
+            dom.activeBetsFeed.innerHTML = "<p>Brak zakładów w toku.</p>";
             return;
         }
+
         snap.forEach(d => {
             const bet = d.data();
-            let statusColor = "var(--text-muted)";
-            let statusText = "W TOKU";
-            let profitInfo = "";
+            
+            // --- ZMIANA: UKRYWAMY ZAKOŃCZONE ZAKŁADY ---
+            if (bet.status !== 'pending') return; 
 
-            if (bet.status === 'won') {
-                statusColor = "var(--green)";
-                statusText = "WYGRANA";
-                profitInfo = ` | <span style="color:var(--green)">+${formatujWalute(bet.betAmount * bet.odds)}</span>`;
-            } else if (bet.status === 'lost') {
-                statusColor = "var(--red)";
-                statusText = "PRZEGRANA";
-            }
             const matchName = bet.matchTitle || "Zakład Sportowy";
-            const teamName = bet.betOn === 'draw' ? 'Remis (X)' : (bet.betOn === 'teamA' ? 'Gospodarz (1)' : 'Gość (2)');
+            // Tłumaczenie typu zakładu na ludzki język
+            const teamName = bet.betOn === 'draw' ? 'Remis' : (bet.betOn === 'teamA' ? 'Gospodarz' : 'Gość');
 
             const html = `
                 <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed rgba(255,255,255,0.1);">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <span style="font-weight: bold; font-size: 0.9em; color: var(--accent-color);">${matchName}</span>
-                        <span style="color: ${statusColor}; font-weight: 800; font-size: 0.8em;">${statusText}</span>
+                        <span style="color: var(--text-muted); font-weight: 800; font-size: 0.8em;">W TOKU</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.85em; color: #ccc; margin-top: 4px;">
                         <span>Twój typ: <strong>${teamName}</strong> (@${bet.odds.toFixed(2)})</span>
                     </div>
                     <div style="text-align: right; font-size: 0.85em; margin-top: 2px;">
-                        Stawka: ${formatujWalute(bet.betAmount)}${profitInfo}
+                        Stawka: ${new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(bet.betAmount)}
                     </div>
                 </div>`;
             dom.activeBetsFeed.insertAdjacentHTML('beforeend', html);
         });
     });
 }
-
 function renderBettingPanel() {
     dom.matchInfo.innerHTML = "";
     dom.bettingForm.classList.add("hidden");
@@ -1011,29 +1011,39 @@ function renderBettingPanel() {
 
     // --- POCZĄTEK ZMIANY W script.js (wewnątrz renderBettingPanel) ---
 
+    // Wewnątrz funkcji renderBettingPanel (script.js):
+
     dayMatches.forEach(match => {
-        // 1. FILTROWANIE: Jeśli mecz nie jest otwarty, pomiń go (nie pokazuj w tabeli)
-        if (match.status !== 'open') return; 
+        // TU USUNĘLIŚMY FILTR (wszystkie mecze są widoczne, nawet zakończone)
 
         const tr = document.createElement("tr");
         const date = match.closeTime.toDate();
         const timeStr = date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
         
-        // Ponieważ filtrujemy wyżej, zawsze wyświetlamy czas (nie musimy sprawdzać isResolved)
+        const isClosed = match.status !== 'open';
+        const isResolved = match.status === 'resolved';
+
+        // Kolumna Czasu
         let timeHtml = timeStr;
-        
+        if (isResolved) timeHtml = "Koniec";
+        else if (isClosed) timeHtml = `<span class="match-live">LIVE</span>`;
+
         // Kolumna Meczu
         let matchHtml = `<strong>${match.teamA}</strong> <small>vs</small> <strong>${match.teamB}</strong>`;
+        if (isResolved) {
+            let w = match.winner === 'draw' ? 'REMIS' : (match.winner === 'teamA' ? match.teamA : match.teamB);
+            matchHtml += `<br><span class="match-finished">Wynik: ${w}</span>`;
+        }
 
-        // Helper do przycisków
+        // Helper do przycisków - dodano style dla długich nazw
         const createBtn = (teamCode, odds, label) => `
-            <button class="table-bet-btn"
+            <button class="table-bet-btn" ${isClosed ? 'disabled' : ''}
                 onclick="selectBet('${match.id}', '${teamCode}', ${odds}, '${match.teamA} vs ${match.teamB} [${label}]')">
-                <span style="display:block; font-size:0.8em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:80px;">${label}</span>
-                <small style="color:var(--accent-color); font-weight:bold;">${odds.toFixed(2)}</small>
+                <span style="display:block; font-size:0.75em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:85px;">${label}</span>
+                <small style="color:var(--accent-color); font-weight:bold; font-size:0.9em;">${odds.toFixed(2)}</small>
             </button>`;
 
-        // 2. ZMIANA ETYKIET: Zamiast '1', 'X', '2' wstawiamy nazwy
+        // --- ZMIANA: UŻYWAMY NAZW DRUŻYN ZAMIAST 1, X, 2 ---
         const oddsHtml = `<div class="odds-btn-group">
             ${createBtn('teamA', match.oddsA, match.teamA)}
             ${createBtn('draw', match.oddsDraw, 'REMIS')}
