@@ -721,22 +721,74 @@ function onSelectHistoryTab(e) {
 }
 
 // --- NEWSY I PLOTKI ---
+// --- NEWSY I PLOTKI (ZMODYFIKOWANE) ---
+
 function listenToMarketNews() {
-    unsubscribeNews = onSnapshot(query(collection(db, "gielda_news"), orderBy("timestamp", "desc"), limit(5)), snap => {
-        snap.docChanges().forEach(c => { if(c.type==='added') {
-            const n = c.doc.data();
-            if(initialNewsLoaded) showNotification(n.text, 'news', n.impactType);
-            dom.newsFeed.insertAdjacentHTML('afterbegin', `<p style="color:${n.impactType==='positive'?'var(--green)':'var(--red)'}">${n.text}</p>`);
-        }});
+    unsubscribeNews = onSnapshot(query(collection(db, "gielda_news"), orderBy("timestamp", "desc"), limit(10)), snap => {
+        // Czyścimy feed tylko przy pierwszym ładowaniu, żeby nie migało przy dodawaniu
+        if (!initialNewsLoaded) dom.newsFeed.innerHTML = "";
+        
+        snap.docChanges().forEach(change => {
+            if (change.type === 'added') {
+                const n = change.doc.data();
+                
+                // Jeśli to nowe powiadomienie (po załadowaniu strony), pokaż toast
+                if (initialNewsLoaded) showNotification(n.text, 'news', n.impactType);
+
+                // Ikona zależna od typu
+                const iconClass = n.impactType === 'positive' ? 'fa-arrow-trend-up' : 'fa-triangle-exclamation';
+                
+                // Generowanie HTML
+                const html = `
+                    <div class="feed-item ${n.impactType}">
+                        <div class="feed-icon"><i class="fa-solid ${iconClass}"></i></div>
+                        <div class="feed-content">
+                            <div class="feed-header">
+                                <span>WIADOMOŚĆ RYNKOWA</span>
+                            </div>
+                            <div class="feed-text">${n.text}</div>
+                        </div>
+                    </div>
+                `;
+                
+                // Dodajemy na górę listy
+                dom.newsFeed.insertAdjacentHTML('afterbegin', html);
+                
+                // Usuwamy nadmiarowe elementy z dołu (żeby nie zapchać pamięci)
+                if (dom.newsFeed.children.length > 10) {
+                    dom.newsFeed.lastElementChild.remove();
+                }
+            }
+        });
         initialNewsLoaded = true;
     });
 }
+
 function listenToRumors() {
-    unsubscribeRumors = onSnapshot(query(collection(db, "plotki"), orderBy("timestamp", "desc"), limit(10)), snap => {
+    unsubscribeRumors = onSnapshot(query(collection(db, "plotki"), orderBy("timestamp", "desc"), limit(15)), snap => {
         dom.rumorsFeed.innerHTML = "";
         snap.forEach(d => {
             const r = d.data();
-            dom.rumorsFeed.innerHTML += `<p style="color:${r.sentiment==='positive'?'var(--green)':'var(--red)'}">[${market[r.companyId]?market[r.companyId].name:'??'}] ${r.text} <small>- ${r.authorName}</small></p>`;
+            const companyName = market[r.companyId] ? market[r.companyId].name : '???';
+            
+            // Ikona i klasa zależna od sentymentu
+            const impactClass = r.sentiment === 'positive' ? 'positive' : 'negative';
+            const iconClass = r.sentiment === 'positive' ? 'fa-bullhorn' : 'fa-user-secret';
+
+            const html = `
+                <div class="feed-item ${impactClass}">
+                    <div class="feed-icon"><i class="fa-solid ${iconClass}"></i></div>
+                    <div class="feed-content">
+                        <div class="feed-header">
+                            <span>${companyName}</span>
+                            <span style="font-weight:normal; opacity:0.7">Plotka</span>
+                        </div>
+                        <div class="feed-text">${r.text}</div>
+                        <span class="feed-author">~ ${r.authorName} ${getPrestigeStars(r.prestigeLevel || 0)}</span>
+                    </div>
+                </div>
+            `;
+            dom.rumorsFeed.innerHTML += html;
         });
     });
 }
@@ -1624,4 +1676,3 @@ async function onPrestigeReset() {
         dom.modalOverlay.classList.add("hidden");
     } catch(e) {}
 }
-
