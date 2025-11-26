@@ -190,14 +190,78 @@ input:focus, select:focus { border-color: var(--accent-color); }
 #leaderboard-list li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .highlight-me { color: var(--accent-color); font-weight: bold; }
 
-/* Tabele Historii */
+/* --- ZAKŁADKI I HISTORIA (NOWY GRID) --- */
+
+/* Style zakładek (przyciski) */
 .tab-buttons { display: flex; gap: 5px; margin-bottom: 10px; }
 .tab-btn { background: rgba(0,0,0,0.3); border: none; color: var(--text-muted); padding: 5px 10px; font-size: 0.8rem; cursor: pointer; border-radius: 4px; }
 .tab-btn.active { background: var(--accent-color); color: #000; }
-.history-feed p { font-size: 0.8rem; margin: 5px 0; display: flex; justify-content: space-between; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
+/* Kontener listy */
+.history-feed {
+    max-height: 350px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* Wiersz tabeli - Grid */
+.history-row {
+    display: grid;
+    /* 4 kolumny: Kto/Kiedy | Typ | Co | Ile */
+    grid-template-columns: 1.2fr 0.8fr 1.5fr 1fr; 
+    align-items: center;
+    padding: 8px 10px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+    font-size: 0.85em;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    transition: background 0.2s;
+}
+
+.history-row:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Komórki */
+.h-col {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Kropki jak tekst jest za długi */
+    padding-right: 5px;
+}
+
+/* Style konkretnych danych */
+.h-user { font-weight: bold; color: var(--text-main); cursor: pointer; }
+.h-user:hover { text-decoration: underline; color: var(--accent-color); }
+.h-time { color: var(--text-muted); font-family: monospace; }
+
+.h-type { font-weight: 800; font-size: 0.9em; text-transform: uppercase; }
+.h-buy { color: var(--green); }
+.h-sell { color: var(--red); }
+.h-bond { color: #FFD700; }
+.h-bet { color: var(--accent-color); }
+.h-neutral { color: var(--blue); }
+
+.h-asset { color: var(--text-muted); font-style: italic; }
+
+.h-val { 
+    text-align: right; 
+    font-weight: bold; 
+    color: var(--text-main); 
+}
+
+/* Responsywność */
+@media (max-width: 500px) {
+    .history-row {
+        grid-template-columns: 1fr 0.8fr 1.2fr 1fr;
+        font-size: 0.75em;
+        padding: 6px;
+    }
+}
 /* --- WIDOK 2: ROZRYWKA --- */
 .entertainment-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
 .entertainment-wallet-bar { display: flex; justify-content: center; align-items: center; padding: 15px; margin-bottom: 20px; font-size: 1.2rem; }
