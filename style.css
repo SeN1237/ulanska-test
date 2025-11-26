@@ -13,7 +13,7 @@
     --red: #ff1744;
     --font-main: 'Inter', sans-serif;
     --radius: 16px;
-    --blue: #007bff; /* Dodano, bo jest używane w PvP */
+    --blue: #007bff;
 }
 
 body {
@@ -1361,4 +1361,107 @@ input:focus, select:focus { border-color: var(--accent-color); }
         width: calc(100% - 40px);
         height: 50vh;
     }
+}
+
+/* --- CRASH GAME STYLES (NOWE) --- */
+.crash-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 10px;
+}
+
+.crash-display {
+    position: relative;
+    background: #1f1e25;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#crash-canvas {
+    width: 100%;
+    height: auto;
+    background: radial-gradient(circle at bottom left, #2c2b33 0%, #1f1e25 70%);
+    display: block;
+}
+
+.crash-overlay-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--text-main);
+    text-shadow: 0 0 20px rgba(0,0,0,0.8);
+    pointer-events: none;
+    z-index: 10;
+}
+
+.crash-overlay-text.crashed {
+    color: var(--red);
+    animation: shake 0.5s;
+}
+
+.crash-overlay-text.cashed-out {
+    color: var(--green);
+}
+
+.crash-info {
+    position: absolute;
+    bottom: 10px;
+    left: 0; 
+    right: 0;
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    z-index: 10;
+}
+
+.crash-history-bar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    overflow: hidden;
+}
+
+.crash-history-items {
+    display: flex;
+    gap: 5px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+}
+
+.crash-history-item {
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.1);
+    font-weight: bold;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+.crash-history-item.bad { color: var(--red); }
+.crash-history-item.good { color: var(--green); }
+.crash-history-item.excellent { color: #ffd700; box-shadow: 0 0 5px rgba(255, 215, 0, 0.3); }
+
+/* Guzik akcji zmienia kolory */
+#btn-crash-action.btn-cashout {
+    background: var(--green);
+    color: #000;
+    box-shadow: 0 0 15px rgba(0, 230, 118, 0.4);
+}
+
+@keyframes shake {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    25% { transform: translate(-52%, -48%) rotate(-2deg); }
+    50% { transform: translate(-48%, -52%) rotate(2deg); }
+    75% { transform: translate(-52%, -52%) rotate(-1deg); }
+    100% { transform: translate(-50%, -50%) rotate(0deg); }
 }
