@@ -262,17 +262,17 @@ input:focus, select:focus { border-color: var(--accent-color); }
 @keyframes scaleUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 /* =============================================== */
-/* === OSADZONA RULETKA PVP (POPRAWIONA) === */
+/* === OSADZONA RULETKA PVP (FIX SZEROKOŚCI) === */
 /* =============================================== */
 
 #pvp-embedded-roulette {
     margin-top: 20px;
     padding-top: 10px;
     animation: fadeIn 0.5s ease;
-    width: 100%;           /* Wypełnij dostępną szerokość */
-    max-width: 100%;       /* Nie wychodź poza kafelek */
-    box-sizing: border-box; /* Uwzględnij padding w szerokości */
-    overflow: hidden;      /* Ukryj wszystko co wystaje */
+    width: 100%;
+    max-width: 100%;       /* Zabezpieczenie kontenera */
+    overflow: hidden;      /* Ukrywa wszystko, co wystaje poza ten div */
+    position: relative;
 }
 
 .pvp-title-embedded {
@@ -283,14 +283,13 @@ input:focus, select:focus { border-color: var(--accent-color); }
     letter-spacing: 1px;
 }
 
-/* Okno ruletki - kontener paska i markera */
+/* Okno ruletki - "Viewport" */
 .roulette-window.embedded {
-    width: 100%;           /* Szerokość dopasowana do rodzica */
-    max-width: 100%;       /* Zabezpieczenie przed rozpychaniem */
+    width: 100%;
     height: 100px;
     background-color: #000;
-    position: relative;    /* Ważne dla pozycjonowania markera */
-    overflow: hidden;      /* Ukrywa karty poza widokiem */
+    position: relative;    /* Ważne dla absolute w środku */
+    overflow: hidden;      /* Kluczowe: przycina pasek */
     border: 2px solid var(--border-color);
     border-radius: 6px;
     margin: 0 auto;
@@ -298,27 +297,35 @@ input:focus, select:focus { border-color: var(--accent-color); }
     box-sizing: border-box;
 }
 
+/* Pasek z kartami - FIX ROZPYCHANIA */
 .roulette-strip {
     display: flex;
     height: 100%;
-    width: max-content;    /* Pasek jest tak długi jak suma kart */
+    width: max-content;
+    
+    /* --- KLUCZOWE ZMIANY --- */
+    position: absolute;    /* Wyjmuje pasek z przepływu dokumentu */
+    top: 0;
+    left: 0;
+    /* ----------------------- */
+    
     transform: translateX(0); 
     will-change: transform;
 }
 
-/* --- KURSOR RULETKI (Naprawiony) --- */
+/* --- KURSOR RULETKI --- */
 .roulette-marker {
     position: absolute;
     left: 50%;
     top: 0;
     bottom: 0;
-    width: 4px;            /* Grubość linii */
-    background: #FFD700;   /* Złoty kolor */
-    z-index: 1000;         /* Bardzo wysoki index - zawsze na wierzchu */
+    width: 4px;
+    background: #FFD700;
+    z-index: 1000;
     transform: translateX(-50%);
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
     pointer-events: none;
-    height: 100%;          /* Pełna wysokość okna */
+    height: 100%;
 }
 
 /* Trójkąt na górze */
@@ -349,7 +356,7 @@ input:focus, select:focus { border-color: var(--accent-color); }
     z-index: 1001;
 }
 
-/* Karty w pasku */
+/* Karty */
 .roulette-card {
     width: 120px;
     height: 100%;
@@ -364,7 +371,7 @@ input:focus, select:focus { border-color: var(--accent-color); }
     padding: 5px;
     text-align: center;
     position: relative;
-    background-color: #1a1a1a; /* Domyślne tło */
+    background-color: #1a1a1a;
 }
 
 .card-creator {
@@ -400,13 +407,13 @@ input:focus, select:focus { border-color: var(--accent-color); }
     animation: flash-accent 1s infinite;
 }
 
-/* Cienie po bokach dla głębi (Winieta) */
+/* Winieta (Cienie po bokach) */
 .roulette-window.embedded::before, .roulette-window.embedded::after {
     content: '';
     position: absolute;
     top: 0; bottom: 0;
-    width: 60px; /* Szersze cienie */
-    z-index: 50; /* Nad kartami, ale pod markerem */
+    width: 60px;
+    z-index: 50;
     pointer-events: none;
 }
 .roulette-window.embedded::before { left: 0; background: linear-gradient(to right, rgba(0,0,0,1), transparent); }
