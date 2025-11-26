@@ -1678,3 +1678,56 @@ input:focus, select:focus { border-color: var(--accent-color); }
     gap: 10px;
     width: 100%;
 }
+/* --- NAWIGACJA GIER (ZAKŁADKI) --- */
+.games-nav-scroll::-webkit-scrollbar {
+    height: 4px;
+}
+.games-nav-scroll::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+.games-nav-scroll::-webkit-scrollbar-thumb {
+    background: var(--accent-color);
+    border-radius: 2px;
+}
+
+.game-nav-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--text-muted);
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.game-nav-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.game-nav-btn.active {
+    background: var(--accent-gradient);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
+}
+
+/* --- KONTENERY GIER --- */
+.game-tab-content {
+    display: none; /* Domyślnie ukryte */
+    animation: fadeIn 0.4s ease;
+}
+
+.game-tab-content.active {
+    display: block; /* Pokazuje tylko aktywne */
+}
+
+/* Poprawka dla radia, żeby nie było za szerokie na PC */
+#tab-game-radio .glass-panel {
+    max-width: 600px;
+    margin: 0 auto;
+}
