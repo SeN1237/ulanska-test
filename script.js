@@ -405,7 +405,42 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.userInfo.addEventListener("click", () => {
     if (currentUserId) showUserProfile(currentUserId);
 });
+// --- OBSŁUGA PŁYWAJĄCEGO CZATU ---
+    const chatFab = document.getElementById("chat-fab");
+    const chatWindow = document.getElementById("floating-chat-window");
+    const closeChatBtn = document.getElementById("close-chat-btn");
+    const chatBadge = document.getElementById("chat-badge");
+    const chatFeedRef = document.getElementById("chat-feed"); // Referencja do feedu
 
+    // Funkcja otwierania/zamykania
+    function toggleChat() {
+        if(!chatWindow) return;
+        
+        chatWindow.classList.toggle("hidden");
+        
+        // Jeśli otwieramy czat
+        if (!chatWindow.classList.contains("hidden")) {
+            // Ukryj czerwoną kropkę powiadomień
+            if(chatBadge) chatBadge.classList.add("hidden");
+            
+            // Przewiń na dół
+            setTimeout(() => {
+                if(chatFeedRef) chatFeedRef.scrollTop = chatFeedRef.scrollHeight;
+            }, 100);
+        }
+    }
+
+    if (chatFab) chatFab.addEventListener("click", toggleChat);
+    if (closeChatBtn) closeChatBtn.addEventListener("click", toggleChat);
+
+    // Zamknij czat klikając poza nim (opcjonalne)
+    document.addEventListener("click", (e) => {
+        if (chatWindow && !chatWindow.classList.contains("hidden") && 
+            !chatWindow.contains(e.target) && 
+            !chatFab.contains(e.target)) {
+            chatWindow.classList.add("hidden");
+        }
+    });
     startAuthListener();
 });
 
@@ -815,7 +850,17 @@ function listenToChat() {
             snap.docChanges().forEach(change => {
                 if (change.type === "added") {
                     const m = change.doc.data();
-                    if (m.authorId !== currentUserId) showNotification(`${m.authorName}: ${m.text}`, 'chat');
+                    // Jeśli wiadomość nie jest ode mnie
+                    if (m.authorId !== currentUserId) {
+                        showNotification(`${m.authorName}: ${m.text}`, 'chat');
+                        
+                        // LOGIKA BADGE'A: Jeśli okno czatu jest ukryte, pokaż kropkę
+                        const floatWindow = document.getElementById("floating-chat-window");
+                        const badge = document.getElementById("chat-badge");
+                        if (floatWindow && floatWindow.classList.contains("hidden") && badge) {
+                            badge.classList.remove("hidden");
+                        }
+                    }
                 }
             });
         }
