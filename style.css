@@ -977,3 +977,126 @@ input:focus, select:focus { border-color: var(--accent-color); }
     from { opacity: 0; transform: translateX(-20px); }
     to { opacity: 1; transform: translateX(0); }
 }
+/* ========================================= */
+/* === STYLE OKNA PROFILU (MODAL) === */
+/* ========================================= */
+
+/* Tło przyciemniające cały ekran */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85); /* Mocne przyciemnienie tła */
+    backdrop-filter: blur(5px);      /* Rozmycie tego co pod spodem */
+    z-index: 2000;                   /* Aby było nad wszystkim innym */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s;
+}
+
+/* Klasa usuwająca ukrycie (gdy usuwamy klasę .hidden) */
+.modal-overlay:not(.hidden) {
+    opacity: 1;
+    visibility: visible;
+    display: flex !important;
+}
+
+/* Główne pudełko profilu */
+.modal-content {
+    width: 90%;
+    max-width: 500px;
+    background: linear-gradient(135deg, rgba(30, 30, 40, 0.95), rgba(15, 12, 41, 0.95));
+    border: 1px solid var(--accent-color);
+    box-shadow: 0 0 30px rgba(0, 210, 255, 0.2);
+    padding: 25px;
+    position: relative;
+    max-height: 90vh; /* Zabezpieczenie na małe ekrany */
+    overflow-y: auto; /* Przewijanie jeśli treść się nie mieści */
+    animation: zoomIn 0.3s ease;
+}
+
+/* Przycisk zamknięcia (X) */
+.modal-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.modal-close:hover {
+    color: var(--red);
+    transform: rotate(90deg);
+}
+
+/* Nagłówek i treść */
+.modal-content h2 {
+    margin-top: 0;
+    color: var(--accent-color);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+/* Siatka statystyk (4 kafelki) */
+.modal-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.stat-box {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.stat-box span {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+}
+
+.stat-box strong {
+    font-size: 1.1rem;
+    color: var(--text-main);
+}
+
+/* Sekcja prestiżu */
+.prestige-section {
+    background: rgba(255, 215, 0, 0.05); /* Lekko złote tło */
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.prestige-section p {
+    margin: 5px 0;
+}
+
+/* Lista aktywów w profilu */
+.assets-list.compact .asset-row {
+    padding: 5px 0;
+    font-size: 0.85rem;
+}
+
+/* Animacja pojawiania się okna */
+@keyframes zoomIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
