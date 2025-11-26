@@ -279,6 +279,7 @@ document.addEventListener("DOMContentLoaded", () => {
         showLoginLink: document.getElementById("show-login-link"),
         username: document.getElementById("username"),
         logoutButton: document.getElementById("logout-button"),
+        userInfo: document.getElementById("user-info"), // <--- DODAJ TĘ LINIĘ
         
         // Navigation (NOWE)
         navButtons: document.querySelectorAll(".nav-btn"),
@@ -406,6 +407,9 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.modalOverlay.addEventListener("click", (e) => { if (e.target === dom.modalOverlay) dom.modalOverlay.classList.add("hidden"); });
     dom.showRegisterLink.addEventListener("click", (e) => { e.preventDefault(); dom.authContainer.classList.add("show-register"); showAuthMessage(""); });
     dom.showLoginLink.addEventListener("click", (e) => { e.preventDefault(); dom.authContainer.classList.remove("show-register"); showAuthMessage(""); });
+    dom.userInfo.addEventListener("click", () => {
+    if (currentUserId) showUserProfile(currentUserId);
+});
 
     startAuthListener();
 });
