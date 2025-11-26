@@ -1465,3 +1465,86 @@ input:focus, select:focus { border-color: var(--accent-color); }
     75% { transform: translate(-52%, -52%) rotate(-1deg); }
     100% { transform: translate(-50%, -50%) rotate(0deg); }
 }
+/* --- PLINKO STYLES --- */
+.plinko-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    align-items: center;
+}
+
+.plinko-game-area {
+    position: relative;
+    width: 100%;
+    max-width: 600px; /* Ograniczenie szerokości dla estetyki */
+    background: radial-gradient(circle at top, #1a1a2e 0%, #0f0c29 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 10px;
+    overflow: hidden;
+}
+
+#plinko-canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Mnożniki na dole */
+.plinko-multipliers-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 2px;
+    margin-top: -5px; /* Lekkie nasunięcie na canvas */
+    padding: 0 5px 5px 5px;
+}
+
+.plinko-bucket {
+    flex: 1;
+    text-align: center;
+    font-size: 0.65rem;
+    font-weight: bold;
+    padding: 5px 0;
+    border-radius: 4px;
+    color: #fff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    transition: transform 0.1s;
+    user-select: none;
+}
+
+/* Kolory bucketów (gradient od środka na zewnątrz) */
+.pb-low { background: #302b63; color: #aaa; }
+.pb-med { background: #5b247a; }
+.pb-high { background: #9966FF; box-shadow: 0 0 10px rgba(153, 102, 255, 0.4); }
+.pb-ultra { background: #ff00cc; box-shadow: 0 0 15px rgba(255, 0, 204, 0.6); }
+
+/* Animacja trafienia */
+.plinko-bucket.hit {
+    transform: scale(1.2) translateY(-5px);
+    filter: brightness(1.5);
+    z-index: 10;
+}
+
+.plinko-controls {
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.plinko-stats {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.plinko-stats input {
+    flex: 1;
+}
+
+.plinko-settings {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-align: right;
+}
