@@ -65,7 +65,6 @@ button, input, select { font-family: inherit; }
 .user-badge { cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; padding: 5px 10px; border-radius: 20px; background: rgba(255,255,255,0.1); transition: 0.3s; }
 .user-badge:hover { background: rgba(255,255,255,0.2); }
 #logout-button { background: transparent; border: none; color: var(--red); font-size: 1.2rem; cursor: pointer; }
-#theme-select { background: rgba(0,0,0,0.5); color: white; border: var(--glass-border); border-radius: 5px; padding: 5px; }
 
 .ticker-wrap { background: rgba(0,0,0,0.6); overflow: hidden; padding: 8px 0; border-bottom: var(--glass-border); white-space: nowrap; }
 #ticker-content { display: inline-block; animation: ticker 40s linear infinite; }
