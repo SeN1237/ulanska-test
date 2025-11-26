@@ -237,10 +237,10 @@ async function onRegister(e) {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         if (cred.user) {
             await setDoc(doc(db, "uzytkownicy", cred.user.uid), {
-                name: name, email: email, cash: 1000.00,
+                name: name, email: email, cash: 10000.00,
                 shares: { ulanska: 0, rychbud: 0, brzozair: 0, cosmosanit: 0, nicorp: 0, igirium: 0 },
                 stats: { totalTrades: 0, tipsPurchased: 0, bondsPurchased: 0 },
-                startValue: 1000.00, zysk: 0.00, totalValue: 1000.00,
+                startValue: 10000.00, zysk: 0.00, totalValue: 10000.00,
                 joinDate: Timestamp.fromDate(new Date()), prestigeLevel: 0 
             });
         }
@@ -303,6 +303,7 @@ document.addEventListener("DOMContentLoaded", () => {
         username: document.getElementById("username"),
         logoutButton: document.getElementById("logout-button"),
         userInfo: document.getElementById("user-info"), 
+        muteButton: document.getElementById("mute-button"),
         
         // Navigation
         navButtons: document.querySelectorAll(".nav-btn"),
@@ -438,6 +439,39 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.userInfo.addEventListener("click", () => {
     if (currentUserId) showUserProfile(currentUserId);
     });
+
+	// --- OBSŁUGA WYCISZANIA (MUTE) ---
+    let isMuted = localStorage.getItem('gameMuted') === 'true';
+
+    function updateMuteState() {
+        // Aktualizacja ikony
+        const icon = dom.muteButton.querySelector('i');
+        if (isMuted) {
+            icon.classList.remove('fa-volume-high');
+            icon.classList.add('fa-volume-xmark');
+            dom.muteButton.style.color = 'var(--red)';
+        } else {
+            icon.classList.remove('fa-volume-xmark');
+            icon.classList.add('fa-volume-high');
+            dom.muteButton.style.color = ''; // reset do CSS
+        }
+
+        // Fizyczne wyciszenie elementów audio
+        if(dom.audioKaching) dom.audioKaching.muted = isMuted;
+        if(dom.audioError) dom.audioError.muted = isMuted;
+        if(dom.audioNews) dom.audioNews.muted = isMuted;
+    }
+
+    if(dom.muteButton) {
+        // Ustaw stan początkowy
+        updateMuteState();
+
+        dom.muteButton.addEventListener("click", () => {
+            isMuted = !isMuted;
+            localStorage.setItem('gameMuted', isMuted);
+            updateMuteState();
+        });
+    }
 
     // --- OBSŁUGA ZAKŁADEK GIER (ZMODYFIKOWANA) ---
     const gameNavButtons = document.querySelectorAll('.game-nav-btn');
@@ -1712,11 +1746,11 @@ async function onPrestigeReset() {
             }
 
             t.update(ref, { 
-                cash: 1000, 
+                cash: 10000, 
                 shares: {ulanska:0, rychbud:0, brzozair:0, cosmosanit:0, nicorp:0, igirium:0},
-                startValue: 1000, 
+                startValue: 10000, 
                 zysk: 0, 
-                totalValue: 1000, 
+                totalValue: 10000, 
                 prestigeLevel: currentLvl + 1 
             });
         });
