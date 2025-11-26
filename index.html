@@ -416,6 +416,37 @@
                              <h3 id="pvp-roulette-winner" class="pvp-winner-text">...</h3>
                         </div>
                     </section>
+                    
+                    <section id="plinko-panel" class="glass-panel center-content">
+    <div class="panel-head">
+        <h2><i class="fa-solid fa-circle-nodes"></i> Plinko</h2>
+    </div>
+
+    <div class="plinko-wrapper">
+        <div class="plinko-game-area">
+            <canvas id="plinko-canvas" width="800" height="600"></canvas>
+            <div id="plinko-multipliers" class="plinko-multipliers-row"></div>
+        </div>
+
+        <div class="plinko-controls">
+            <div class="plinko-stats">
+                <span>Stawka:</span>
+                <input type="number" id="plinko-amount" class="dark-input" placeholder="Kwota" value="100">
+            </div>
+            
+            <div class="plinko-settings">
+                <label>Ryzyko: <span style="color:var(--accent-color)">Wysokie (16 linii)</span></label>
+            </div>
+
+            <button id="btn-plinko-drop" class="btn-accent btn-full-width mt-10">PUŚĆ KULKĘ</button>
+        </div>
+        
+        <div class="crash-history-bar" style="margin-top: 10px;">
+            <span>Ostatnie:</span>
+            <div id="plinko-history-list" class="crash-history-items"></div>
+        </div>
+    </div>
+</section>
                 </div>
 
                 <div class="social-column">
