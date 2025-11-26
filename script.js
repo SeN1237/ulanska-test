@@ -706,9 +706,20 @@ function onBuyMax() { const p = market[currentCompanyId].price; if(p>0) dom.amou
 function onSellMax() { dom.amountInput.value = portfolio.shares[currentCompanyId]||0; }
 function onSelectMarketType(e) {
     const type = e.target.dataset.marketType;
+    
+    // --- NOWA BLOKADA KRYPTO ---
+    if (type === 'crypto' && portfolio.prestigeLevel < 3) {
+        e.preventDefault(); // Zatrzymaj kliknięcie
+        showMessage("Krypto wymaga 3 gwiazdek prestiżu! (Poziom 3)", "error");
+        return; // Nie przełączaj zakładki
+    }
+    // ---------------------------
+
     dom.marketTypeTabs.forEach(t => t.classList.toggle("active", t.dataset.marketType === type));
     dom.companySelector.classList.toggle("hidden", type !== 'stocks');
     dom.cryptoSelector.classList.toggle("hidden", type !== 'crypto');
+    
+    // Domyślna firma po przełączeniu
     changeCompany(type === 'stocks' ? 'ulanska' : 'nicorp');
 }
 function onSelectOrderTab(e) {
@@ -1648,35 +1659,96 @@ function displayHistoryItem(feed, item, isGlobal) {
 
 window.showUserProfile = async function(uid) {
     const d = (await getDoc(doc(db, "uzytkownicy", uid))).data();
+    
+    // Wypełnianie danych
     dom.modalUsername.textContent = d.name;
     dom.modalTotalValue.textContent = formatujWalute(d.totalValue);
     dom.modalCash.textContent = formatujWalute(d.cash);
-    dom.modalPrestigeLevel.textContent = d.prestigeLevel;
+    dom.modalPrestigeLevel.textContent = d.prestigeLevel || 0;
     
+    // Lista akcji
     let sharesHtml = "";
-    COMPANY_ORDER.forEach(cid => { if((d.shares[cid]||0)>0) sharesHtml += `<p>${market[cid].name}: ${d.shares[cid]}</p>`; });
-    dom.modalSharesList.innerHTML = sharesHtml || "<p>Brak aktywów</p>";
+    COMPANY_ORDER.forEach(cid => { 
+        if((d.shares[cid]||0)>0) sharesHtml += `<p>${market[cid].name}: ${d.shares[cid]}</p>`; 
+    });
+    dom.modalSharesList.innerHTML = sharesHtml || "<p style='color:var(--text-muted)'>Brak aktywów</p>";
     
     dom.modalOverlay.classList.remove("hidden");
-    if(uid === currentUserId) {
-        dom.prestigeButton.disabled = d.totalValue < PRESTIGE_REQUIREMENTS[d.prestigeLevel||0];
-        dom.prestigeNextGoal.textContent = `Cel: ${formatujWalute(PRESTIGE_REQUIREMENTS[d.prestigeLevel||0])}`;
+
+    // --- NAPRAWA PRZYCISKU AWANSU ---
+    const isMe = (uid === currentUserId);
+    const currentLvl = d.prestigeLevel || 0;
+    const nextRequirement = PRESTIGE_REQUIREMENTS[currentLvl]; // Pobierz wymóg dla obecnego poziomu
+
+    // 1. Ukryj wszystko, jeśli to nie ja
+    if (!isMe) {
+        dom.prestigeButton.style.display = "none";
+        dom.prestigeNextGoal.textContent = "";
+        dom.prestigeInfo.style.display = "none"; // Opcjonalnie ukryj info o prestiżu u innych
+    } 
+    // 2. Jeśli to ja, ale skończyły się poziomy (max level)
+    else if (nextRequirement === undefined) {
+        dom.prestigeButton.style.display = "none";
+        dom.prestigeNextGoal.textContent = "Maksymalny Prestiż Osiągnięty!";
+        dom.prestigeInfo.style.display = "block";
+    } 
+    // 3. Jeśli to ja i mogę awansować (lub zbieram kasę)
+    else {
+        dom.prestigeButton.style.display = "block";
+        dom.prestigeInfo.style.display = "block";
+        dom.prestigeNextGoal.textContent = `Cel: ${formatujWalute(nextRequirement)}`;
+        
+        // Odblokuj przycisk tylko jeśli mam dość kasy
+        if (d.totalValue >= nextRequirement) {
+            dom.prestigeButton.disabled = false;
+            dom.prestigeButton.textContent = "AWANSUJ (Reset Konta)";
+            dom.prestigeButton.classList.add("btn-green"); // Dodatkowy efekt wizualny (opcjonalnie)
+        } else {
+            dom.prestigeButton.disabled = true;
+            dom.prestigeButton.textContent = "Za mało środków";
+            dom.prestigeButton.classList.remove("btn-green");
+        }
     }
 };
 
 async function onPrestigeReset() {
-    if(!confirm("Resetujesz konto dla Prestiżu?")) return;
+    if(!confirm("To zresetuje Twoją gotówkę i akcje do zera, ale da Ci gwiazdkę prestiżu. Kontynuować?")) return;
+    
     try {
         await runTransaction(db, async t => {
             const ref = doc(db, "uzytkownicy", currentUserId);
             const d = (await t.get(ref)).data();
+            const currentLvl = d.prestigeLevel || 0;
+            
+            // Zabezpieczenie 1: Sprawdź czy istnieje kolejny poziom
+            if (currentLvl >= PRESTIGE_REQUIREMENTS.length) {
+                throw new Error("Osiągnięto już maksymalny poziom!");
+            }
+
+            // Zabezpieczenie 2: Sprawdź kasę po stronie serwera (w transakcji)
+            const req = PRESTIGE_REQUIREMENTS[currentLvl];
+            if (d.totalValue < req) {
+                throw new Error(`Brakuje środków! Wymagane: ${req}`);
+            }
+
+            // Wykonaj reset i awans
             t.update(ref, { 
                 cash: 1000, 
-                shares: {ulanska:0,rychbud:0,brzozair:0,cosmosanit:0,nicorp:0,igirium:0},
-                startValue: 1000, zysk: 0, totalValue: 1000, 
-                prestigeLevel: (d.prestigeLevel||0)+1 
+                shares: {ulanska:0, rychbud:0, brzozair:0, cosmosanit:0, nicorp:0, igirium:0},
+                startValue: 1000, 
+                zysk: 0, 
+                totalValue: 1000, 
+                prestigeLevel: currentLvl + 1 
             });
         });
+        
         dom.modalOverlay.classList.add("hidden");
-    } catch(e) {}
+        showMessage("Awans udany! Konto zresetowane.", "success");
+        
+        // Efekt dźwiękowy (jeśli masz)
+        if(dom.audioKaching) dom.audioKaching.play().catch(()=>{});
+
+    } catch(e) {
+        showMessage(e.message, "error");
+    }
 }
