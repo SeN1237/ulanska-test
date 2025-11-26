@@ -904,12 +904,14 @@ function listenToActiveMatch() {
 
 function listenToActiveBets(userId) {
     if (unsubscribeActiveBets) unsubscribeActiveBets();
+    
+    // Pobieramy Twoje zakłady
     const q = query(collection(db, "active_bets"), where("userId", "==", userId), orderBy("createdAt", "desc"));
     
     unsubscribeActiveBets = onSnapshot(q, (snap) => {
         dom.activeBetsFeed.innerHTML = "";
         
-        // Sprawdzamy, czy są jakiekolwiek zakłady w toku
+        // Filtrujemy tylko zakłady "w toku"
         const pendingBets = snap.docs.filter(d => d.data().status === 'pending');
 
         if (pendingBets.length === 0) {
@@ -920,21 +922,38 @@ function listenToActiveBets(userId) {
         snap.forEach(d => {
             const bet = d.data();
             
-            // --- ZMIANA: UKRYWAMY ZAKOŃCZONE ZAKŁADY ---
+            // Jeśli zakład nie jest pending, pomijamy go (ukrywamy)
             if (bet.status !== 'pending') return; 
 
-            const matchName = bet.matchTitle || "Zakład Sportowy";
-            // Tłumaczenie typu zakładu na ludzki język
-            const teamName = bet.betOn === 'draw' ? 'Remis' : (bet.betOn === 'teamA' ? 'Gospodarz' : 'Gość');
+            // --- LOGIKA WYCIĄGANIA NAZWY DRUŻYNY ---
+            let pickedTeamName = "???";
+            
+            // 1. Czyścimy tytuł (usuwamy ewentualne nawiasy [Kurs] itp., jeśli są)
+            // Zakładamy format: "Polska vs Niemcy"
+            let cleanTitle = (bet.matchTitle || "").split(" [")[0]; 
+            
+            // 2. Dzielimy tytuł na dwie drużyny przy pomocy " vs "
+            let teams = cleanTitle.split(" vs ");
+
+            if (bet.betOn === 'draw') {
+                pickedTeamName = "REMIS";
+            } else if (teams.length >= 2) {
+                // Mamy poprawne nazwy z tytułu
+                if (bet.betOn === 'teamA') pickedTeamName = teams[0].trim();
+                if (bet.betOn === 'teamB') pickedTeamName = teams[1].trim();
+            } else {
+                // Zabezpieczenie (gdyby format tytułu był inny)
+                pickedTeamName = bet.betOn === 'teamA' ? 'Gospodarz' : 'Gość';
+            }
 
             const html = `
                 <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed rgba(255,255,255,0.1);">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: bold; font-size: 0.9em; color: var(--accent-color);">${matchName}</span>
+                        <span style="font-weight: bold; font-size: 0.9em; color: var(--accent-color);">${cleanTitle}</span>
                         <span style="color: var(--text-muted); font-weight: 800; font-size: 0.8em;">W TOKU</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.85em; color: #ccc; margin-top: 4px;">
-                        <span>Twój typ: <strong>${teamName}</strong> (@${bet.odds.toFixed(2)})</span>
+                        <span>Twój typ: <strong style="color: white; font-size: 1.1em;">${pickedTeamName}</strong> (@${bet.odds.toFixed(2)})</span>
                     </div>
                     <div style="text-align: right; font-size: 0.85em; margin-top: 2px;">
                         Stawka: ${new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(bet.betAmount)}
