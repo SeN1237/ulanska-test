@@ -1133,3 +1133,100 @@ input:focus, select:focus { border-color: var(--accent-color); }
 #order-panel.crypto-locked .order-container {
     display: none !important;
 }
+/* ========================================= */
+/* === POWIADOMIENIA (TOASTY) === */
+/* ========================================= */
+
+#notification-container {
+    position: fixed;
+    top: 80px; /* Nieco poniżej nagłówka */
+    right: 20px;
+    width: 320px;
+    z-index: 10000; /* Musi być nad wszystkim */
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none; /* Żeby można było klikać pod pustą przestrzenią */
+}
+
+.notification-toast {
+    background: rgba(15, 12, 41, 0.95); /* Ciemne tło pasujące do motywu */
+    color: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+    backdrop-filter: blur(5px);
+    pointer-events: auto; /* Sam toast można kliknąć/zamknąć */
+    
+    /* Domyślny pasek po lewej (niebieski) */
+    border-left: 4px solid var(--accent-color);
+    
+    /* Animacja wejścia */
+    animation: slideInToast 0.4s ease-out forwards;
+    transition: all 0.5s ease;
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.notification-toast strong {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.notification-toast p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* Warianty kolorystyczne (zależne od logiki w JS) */
+.toast-positive {
+    border-left-color: var(--green);
+}
+.toast-positive strong {
+    color: var(--green);
+}
+
+.toast-negative {
+    border-left-color: var(--red);
+}
+.toast-negative strong {
+    color: var(--red);
+}
+
+.toast-chat {
+    border-left-color: #9966FF; /* Fioletowy dla czatu */
+}
+
+/* Klasa dodawana przez JS przed usunięciem elementu */
+.toast-fade-out {
+    opacity: 0;
+    transform: translateX(100px); /* Wylatuje w prawo */
+}
+
+/* Animacja wjazdu z prawej strony */
+@keyframes slideInToast {
+    0% {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Responsywność na telefony */
+@media (max-width: 600px) {
+    #notification-container {
+        width: 90%;
+        right: 5%;
+        left: 5%;
+        top: 70px;
+    }
+}
