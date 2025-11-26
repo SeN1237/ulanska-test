@@ -2362,3 +2362,267 @@ function addPlinkoHistory(mult) {
     list.prepend(item);
     if(list.children.length > 8) list.lastChild.remove();
 }
+// ==========================================
+// === VIDEO POKER LOGIC (Jacks or Better) ===
+// ==========================================
+
+const POKER_RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+const POKER_SUITS = ['♥', '♦', '♣', '♠'];
+const POKER_VALUES = { '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14 };
+
+let pokerDeck = [];
+let pokerHand = [];
+let pokerHeld = [false, false, false, false, false];
+let pokerState = 'idle'; // 'idle', 'deal' (waiting for draw)
+let pokerBet = 0;
+
+// Paytable Multipliers (Standard 9/6 or custom)
+const POKER_PAYTABLE = {
+    'ROYAL FLUSH': 250,
+    'STRAIGHT FLUSH': 50,
+    'FOUR OF A KIND': 25,
+    'FULL HOUSE': 9,
+    'FLUSH': 6,
+    'STRAIGHT': 4,
+    'THREE OF A KIND': 3,
+    'TWO PAIRS': 2,
+    'JACKS OR BETTER': 1
+};
+
+// 1. Initialize / Reset
+function createDeck() {
+    pokerDeck = [];
+    for(let s of POKER_SUITS) {
+        for(let r of POKER_RANKS) {
+            pokerDeck.push({ rank: r, suit: s, val: POKER_VALUES[r], color: (s === '♥' || s === '♦') ? 'red' : 'black' });
+        }
+    }
+    // Shuffle
+    for (let i = pokerDeck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pokerDeck[i], pokerDeck[j]] = [pokerDeck[j], pokerDeck[i]];
+    }
+}
+
+// 2. Global Function for Button Click
+window.onPokerAction = async function() {
+    const btn = document.getElementById("btn-poker-deal");
+    const amountInput = document.getElementById("poker-amount");
+    const statusText = document.getElementById("poker-result-text");
+
+    if (pokerState === 'idle') {
+        // --- PHASE 1: DEAL ---
+        const amount = parseInt(amountInput.value);
+        if (isNaN(amount) || amount <= 0) return showMessage("Podaj stawkę!", "error");
+        if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
+        if (!currentUserId) return showMessage("Zaloguj się!", "error");
+
+        // Transaction: Deduct Money
+        try {
+            await runTransaction(db, async (t) => {
+                const userRef = doc(db, "uzytkownicy", currentUserId);
+                const userDoc = await t.get(userRef);
+                const d = userDoc.data();
+                if (d.cash < amount) throw new Error("Brak środków!");
+                
+                const newCash = d.cash - amount;
+                const newVal = calculateTotalValue(newCash, d.shares);
+                t.update(userRef, { cash: newCash, totalValue: newVal });
+            });
+            
+            // Logic Start
+            pokerBet = amount;
+            amountInput.disabled = true;
+            createDeck();
+            pokerHand = [];
+            pokerHeld = [false, false, false, false, false];
+            
+            // Deal 5 cards
+            for(let i=0; i<5; i++) pokerHand.push(pokerDeck.pop());
+
+            // Render
+            renderPokerCards();
+            resetPaytableHighlight();
+            
+            // Update UI State
+            pokerState = 'deal';
+            btn.textContent = "WYMIEŃ (DRAW)";
+            btn.style.background = "var(--accent-color)"; // Blue/Cyan
+            statusText.textContent = "ZATRZYMAJ KARTY (HOLD)";
+
+        } catch(e) {
+            showMessage(e.message, "error");
+        }
+
+    } else if (pokerState === 'deal') {
+        // --- PHASE 2: DRAW ---
+        
+        // Replace unheld cards
+        for(let i=0; i<5; i++) {
+            if(!pokerHeld[i]) {
+                pokerHand[i] = pokerDeck.pop();
+            }
+        }
+
+        renderPokerCards(); // Show final hand
+
+        // Evaluate
+        const result = evaluatePokerHand(pokerHand);
+        
+        // Handle Winnings
+        let winAmount = 0;
+        let profit = 0 - pokerBet; // Default loss
+
+        if (result.win) {
+            const multiplier = POKER_PAYTABLE[result.handName];
+            winAmount = pokerBet * multiplier;
+            profit = winAmount - pokerBet;
+
+            // Visuals
+            statusText.textContent = `${result.handName}! WYGRANA: ${formatujWalute(winAmount)}`;
+            statusText.style.color = "#00e676"; // Green
+            highlightPaytableRow(result.handName);
+            if(dom.audioKaching) { dom.audioKaching.currentTime=0; dom.audioKaching.play().catch(()=>{}); }
+
+            // DB Update
+            try {
+                await runTransaction(db, async (t) => {
+                    const userRef = doc(db, "uzytkownicy", currentUserId);
+                    const d = (await t.get(userRef)).data();
+                    const newCash = d.cash + winAmount;
+                    const newZysk = (d.zysk || 0) + profit;
+                    const newVal = calculateTotalValue(newCash, d.shares);
+                    t.update(userRef, { cash: newCash, zysk: newZysk, totalValue: newVal });
+                });
+            } catch(e) { console.error(e); }
+
+        } else {
+            statusText.textContent = "GAME OVER";
+            statusText.style.color = "var(--red)";
+            if(dom.audioError) dom.audioError.play().catch(()=>{});
+        }
+
+        // Reset UI State
+        pokerState = 'idle';
+        btn.textContent = "ROZDAJ (DEAL)";
+        btn.style.background = ""; // Default
+        amountInput.disabled = false;
+        
+        // Clear holds visually for next round (data is cleared on deal)
+        document.querySelectorAll('.hold-badge').forEach(el => el.classList.add('hidden'));
+    }
+}
+
+// 3. Toggle Hold
+window.toggleHold = function(index) {
+    if (pokerState !== 'deal') return; // Can only hold after deal, before draw
+    
+    pokerHeld[index] = !pokerHeld[index];
+    
+    const badge = document.getElementById(`hold-${index}`);
+    const card = document.getElementById(`card-${index}`);
+    
+    if (pokerHeld[index]) {
+        badge.classList.remove('hidden');
+        card.style.border = "2px solid yellow";
+        card.style.transform = "translateY(-10px)";
+    } else {
+        badge.classList.add('hidden');
+        card.style.border = "2px solid white";
+        card.style.transform = "translateY(0)";
+    }
+}
+
+// 4. Render Cards
+function renderPokerCards() {
+    for(let i=0; i<5; i++) {
+        const cardEl = document.getElementById(`card-${i}`);
+        const card = pokerHand[i];
+        
+        // Remove 'back' class to flip
+        cardEl.className = `poker-card ${card.color}`;
+        cardEl.innerHTML = `
+            <div class="card-rank">${card.rank}</div>
+            <div class="card-suit">${card.suit}</div>
+        `;
+    }
+}
+
+// 5. Hand Evaluation Logic
+function evaluatePokerHand(hand) {
+    // Sort by value
+    const sorted = [...hand].sort((a, b) => a.val - b.val);
+    const ranks = sorted.map(c => c.val);
+    const suits = sorted.map(c => c.suit);
+
+    // Helpers
+    const isFlush = suits.every(s => s === suits[0]);
+    
+    // Straight check
+    let isStraight = true;
+    for(let i=0; i<4; i++) {
+        if(ranks[i+1] !== ranks[i] + 1) {
+            isStraight = false; 
+            break; 
+        }
+    }
+    // Special Ace Low Straight (A, 2, 3, 4, 5) -> Ranks are 2,3,4,5,14
+    if (!isStraight && ranks.join(',') === '2,3,4,5,14') isStraight = true;
+
+    // Count frequencies
+    const counts = {};
+    ranks.forEach(r => counts[r] = (counts[r] || 0) + 1);
+    const countValues = Object.values(counts);
+
+    // Logic Tree
+    // 1. Royal Flush (Straight + Flush + Ace High + 10 Low)
+    if (isFlush && isStraight && ranks[0] === 10 && ranks[4] === 14) return { win: true, handName: 'ROYAL FLUSH' };
+    
+    // 2. Straight Flush
+    if (isFlush && isStraight) return { win: true, handName: 'STRAIGHT FLUSH' };
+    
+    // 3. Four of a Kind
+    if (countValues.includes(4)) return { win: true, handName: 'FOUR OF A KIND' };
+    
+    // 4. Full House (3 + 2)
+    if (countValues.includes(3) && countValues.includes(2)) return { win: true, handName: 'FULL HOUSE' };
+    
+    // 5. Flush
+    if (isFlush) return { win: true, handName: 'FLUSH' };
+    
+    // 6. Straight
+    if (isStraight) return { win: true, handName: 'STRAIGHT' };
+    
+    // 7. Three of a Kind
+    if (countValues.includes(3)) return { win: true, handName: 'THREE OF A KIND' };
+    
+    // 8. Two Pairs
+    if (countValues.filter(c => c === 2).length === 2) return { win: true, handName: 'TWO PAIRS' };
+    
+    // 9. Jacks or Better (Pair of J, Q, K, A)
+    if (countValues.includes(2)) {
+        // Find which ranks are pairs
+        for(const [rank, count] of Object.entries(counts)) {
+            if (count === 2 && parseInt(rank) >= 11) {
+                return { win: true, handName: 'JACKS OR BETTER' };
+            }
+        }
+    }
+
+    return { win: false, handName: '' };
+}
+
+// 6. UI Helpers
+function highlightPaytableRow(handName) {
+    // Find row containing span with text == handName
+    const rows = document.querySelectorAll('.pay-row');
+    rows.forEach(row => {
+        if(row.firstElementChild.textContent === handName) {
+            row.classList.add('active-win');
+        }
+    });
+}
+
+function resetPaytableHighlight() {
+    document.querySelectorAll('.pay-row').forEach(r => r.classList.remove('active-win'));
+}
