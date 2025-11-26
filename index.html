@@ -487,7 +487,26 @@
     <div id="notification-container"></div>
     <audio id="audio-kaching" src="kaching.mp3" preload="auto"></audio>
     <audio id="audio-error"src="error.mp3" preload="auto"></audio>
-    <audio id="audio-news" src="news_alert.mp3" preload="auto"></audio> 
+    <audio id="audio-news" src="news_alert.mp3" preload="auto"></audio>
+
+    <button id="chat-fab" class="chat-fab">
+    <i class="fa-solid fa-comments"></i>
+    <span id="chat-badge" class="hidden">!</span>
+</button>
+
+<div id="floating-chat-window" class="glass-panel hidden">
+    <div class="chat-header-floating">
+        <h3>Globalny Czat</h3>
+        <button id="close-chat-btn"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    
+    <div id="chat-feed" class="feed-box chat-box floating-feed"></div>
+    
+    <form id="chat-form" class="floating-form">
+        <input type="text" id="chat-input" placeholder="Napisz..." required autocomplete="off">
+        <button type="submit"><i class="fa-solid fa-paper-plane"></i></button>
+    </form>
+</div>
 
 </body>
 </html>
