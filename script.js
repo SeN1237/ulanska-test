@@ -51,7 +51,6 @@ let portfolio = {
 };
 
 const PRESTIGE_REQUIREMENTS = [15000, 30000, 60000, 120000];
-const TIP_COSTS = [1500, 1400, 1200, 1100, 1000];
 const CRYPTO_PRESTIGE_REQUIREMENT = 3; 
 const COMPANY_ORDER = ["ulanska", "rychbud", "brzozair", "cosmosanit", "nicorp", "igirium"];
 const CHART_COLORS = ['#00d2ff', '#FF6384', '#36A2EB', '#4BC0C0', '#9966FF', '#F0B90B', '#627EEA'];
@@ -81,7 +80,6 @@ let unsubscribeChat = null;
 let unsubscribeGlobalHistory = null;
 let unsubscribePersonalHistory = null;
 let unsubscribeLimitOrders = null; 
-let unsubscribeBonds = null;
 let unsubscribeMatch = null;
 let unsubscribeActiveBets = null;
 let unsubscribePvP = null;
@@ -327,8 +325,6 @@ document.addEventListener("DOMContentLoaded", () => {
         rumorForm: document.getElementById("rumor-form"),
         rumorInput: document.getElementById("rumor-input"),
         rumorsFeed: document.getElementById("rumors-feed"),
-        buyTipButton: document.getElementById("buy-tip-button"), 
-        tipCost: document.getElementById("tip-cost"), 
         newsFeed: document.getElementById("news-feed"), 
         leaderboardList: document.getElementById("leaderboard-list"),
         
@@ -341,10 +337,6 @@ document.addEventListener("DOMContentLoaded", () => {
         historyTabButtons: document.querySelectorAll("#history-tabs-panel .tab-btn"),
         globalHistoryFeed: document.getElementById("global-history-feed"),
         personalHistoryFeed: document.getElementById("personal-history-feed"),
-        bondsForm: document.getElementById("bonds-form"),
-        bondAmount: document.getElementById("bond-amount"),
-        bondType: document.getElementById("bond-type"),
-        activeBondsFeed: document.getElementById("active-bonds-feed"),
         
         // Zakłady
         matchInfo: document.getElementById("match-info"),
@@ -402,12 +394,10 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.rumorForm.addEventListener("submit", onPostRumor);
     dom.chatForm.addEventListener("submit", onSendMessage);
     dom.limitOrderForm.addEventListener("submit", onPlaceLimitOrder);
-    dom.bondsForm.addEventListener("submit", onBuyBond); 
     dom.bettingForm.addEventListener("submit", onPlaceBet);
     dom.pvpForm.addEventListener("submit", onCreatePvP);
     dom.resetPasswordLink.addEventListener("click", onResetPassword);
     dom.themeSelect.addEventListener("change", onChangeTheme);
-    dom.buyTipButton.addEventListener("click", onBuyTip);
     dom.prestigeButton.addEventListener("click", onPrestigeReset);
     dom.orderTabMarket.addEventListener("click", onSelectOrderTab);
     dom.orderTabLimit.addEventListener("click", onSelectOrderTab);
@@ -451,8 +441,6 @@ function updatePortfolioUI() {
     // 1. Aktualizacja nagłówka i statystyk tekstowych
     const stars = getPrestigeStars(portfolio.prestigeLevel);
     dom.username.innerHTML = `${portfolio.name} ${stars}`;
-    dom.tipCost.textContent = formatujWalute(TIP_COSTS[portfolio.prestigeLevel]);
-    dom.buyTipButton.disabled = portfolio.cash < TIP_COSTS[portfolio.prestigeLevel];
     
     dom.cash.textContent = formatujWalute(portfolio.cash);
     if(dom.entertainmentCash) dom.entertainmentCash.textContent = formatujWalute(portfolio.cash);
@@ -671,7 +659,6 @@ function startAuthListener() {
             listenToGlobalHistory();
             listenToPersonalHistory(currentUserId);
             listenToLimitOrders(currentUserId);
-            listenToActiveBonds(currentUserId);
             listenToActiveBets(currentUserId);
             listenToPvP();
             listenToActiveMatch();
@@ -893,37 +880,6 @@ function listenToLimitOrders(userId) {
     });
 }
 window.cancelLimit = async function(id) { if(confirm("Anulować?")) await updateDoc(doc(db, "limit_orders", id), {status: "cancelled"}); };
-
-async function onBuyBond(e) {
-    e.preventDefault();
-    const amt = parseFloat(dom.bondAmount.value);
-    const type = dom.bondType.value;
-    if(amt <= 0 || amt > portfolio.cash) return showMessage("Błędna kwota", "error");
-    const days = type==="1"?1:(type==="2"?2:3);
-    const rate = type==="1"?0.05:(type==="2"?0.10:0.15);
-    const profit = amt * rate;
-    try {
-        await runTransaction(db, async t => {
-            const uRef = doc(db, "uzytkownicy", currentUserId);
-            const d = (await t.get(uRef)).data();
-            if(d.cash < amt) throw new Error("Brak środków");
-            t.update(uRef, { cash: d.cash - amt, totalValue: calculateTotalValue(d.cash-amt, d.shares), 'stats.bondsPurchased': increment(1) });
-            const bondRef = doc(collection(db, "active_bonds"));
-            t.set(bondRef, { userId: currentUserId, name: `Obligacja ${days}d (${rate*100}%)`, investment: amt, profit, redeemAt: Timestamp.fromMillis(Date.now()+(days*86400000)), status: "pending", createdAt: serverTimestamp() });
-        });
-        showMessage("Kupiono obligację!", "success");
-    } catch(e) { showMessage(e.message, "error"); }
-}
-function listenToActiveBonds(userId) {
-    unsubscribeBonds = onSnapshot(query(collection(db, "active_bonds"), where("userId", "==", userId), orderBy("createdAt", "desc")), snap => {
-        dom.activeBondsFeed.innerHTML = snap.empty ? "<p>Brak obligacji.</p>" : "";
-        snap.forEach(d => {
-            const b = d.data();
-            const st = b.status==='pending' ? `Oczekuje` : 'Wykupiona';
-            dom.activeBondsFeed.innerHTML += `<p><strong>${b.name}</strong>: ${formatujWalute(b.investment)} -> ${formatujWalute(b.investment+b.profit)} (${st})</p>`;
-        });
-    });
-}
 
 // --- NOWA LOGIKA BUKMACHERKI (Z TABELĄ I DNIAMI) ---
 
@@ -1604,9 +1560,6 @@ function displayHistoryItem(feed, item, isGlobal) {
     } else if (item.type.includes("SPRZEDAŻ")) {
         actionClass = "h-sell";
         displayType = "SPRZEDAŻ";
-    } else if (item.type.includes("OBLIGACJA")) {
-        actionClass = "h-bond";
-        displayType = "OBLIGACJA";
     } else if (item.type.includes("ZAKŁAD")) {
         actionClass = "h-bet";
         displayType = "ZAKŁAD";
@@ -1672,19 +1625,3 @@ async function onPrestigeReset() {
     } catch(e) {}
 }
 
-async function onBuyTip() {
-    const cost = TIP_COSTS[portfolio.prestigeLevel];
-    if(portfolio.cash < cost) return showMessage("Brak środków", "error");
-    if(!confirm("Kupić info?")) return;
-    const isReal = Math.random() < 0.65;
-    const cid = COMPANY_ORDER[Math.floor(Math.random()*COMPANY_ORDER.length)];
-    try {
-        await runTransaction(db, async t => {
-            const ref = doc(db, "uzytkownicy", currentUserId);
-            const d = (await t.get(ref)).data();
-            t.update(ref, { cash: d.cash-cost });
-            if(isReal) t.set(doc(collection(db, "pending_tips")), { userId: currentUserId, companyId: cid, impactType: Math.random()>0.5?'positive':'negative', executeAt: Timestamp.fromMillis(Date.now()+Math.random()*600000) });
-        });
-        showNotification(`Info o ${market[cid].name} kupione!`, 'tip');
-    } catch(e) {}
-}
