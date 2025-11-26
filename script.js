@@ -2062,3 +2062,303 @@ function addCrashHistory(mult) {
     dom.crashHistoryList.prepend(item);
     if(dom.crashHistoryList.children.length > 10) dom.crashHistoryList.lastChild.remove();
 }
+// ==========================================
+// === PLINKO GAME LOGIC (16 Lines) ===
+// ==========================================
+
+// Konfiguracja Plinko (16 rzędów - wysokie ryzyko)
+const PLINKO_ROWS = 16;
+const PLINKO_MULTIPLIERS = [110, 41, 10, 5, 3, 1.5, 1, 0.5, 0.3, 0.5, 1, 1.5, 3, 5, 10, 41, 110];
+// Kolory do UI zależne od wartości
+const PLINKO_COLORS = PLINKO_MULTIPLIERS.map(m => {
+    if(m >= 10) return 'pb-ultra';
+    if(m >= 3) return 'pb-high';
+    if(m >= 1) return 'pb-med';
+    return 'pb-low';
+});
+
+let plinkoCanvas, plinkoCtx;
+let plinkoBalls = [];
+let plinkoPins = [];
+let plinkoEngineRunning = false;
+
+// Inicjalizacja przy starcie strony
+document.addEventListener("DOMContentLoaded", () => {
+    // ... istniejące listenery ...
+    
+    // Dodaj to do sekcji listenerów w DOMContentLoaded:
+    const btnPlinko = document.getElementById("btn-plinko-drop");
+    if(btnPlinko) btnPlinko.addEventListener("click", onPlinkoDrop);
+    
+    setTimeout(initPlinko, 1000); // Małe opóźnienie, żeby DOM się załadował
+});
+
+function initPlinko() {
+    plinkoCanvas = document.getElementById("plinko-canvas");
+    if(!plinkoCanvas) return;
+    plinkoCtx = plinkoCanvas.getContext('2d');
+
+    // Generowanie HTML dla bucketów (mnożników) na dole
+    const bucketContainer = document.getElementById("plinko-multipliers");
+    if(bucketContainer) {
+        bucketContainer.innerHTML = "";
+        PLINKO_MULTIPLIERS.forEach((m, i) => {
+            const div = document.createElement("div");
+            div.className = `plinko-bucket ${PLINKO_COLORS[i]}`;
+            div.id = `plinko-bucket-${i}`;
+            div.innerText = m + 'x';
+            bucketContainer.appendChild(div);
+        });
+    }
+
+    // Obliczanie pozycji kołków (Pins)
+    // Canvas: 800x600. Piramida musi być symetryczna.
+    plinkoPins = [];
+    const startX = 400; // Środek canvasa
+    const startY = 50;  // Margines od góry
+    const gapX = 40;    // Odstęp poziomy
+    const gapY = 32;    // Odstęp pionowy
+
+    for (let row = 0; row <= PLINKO_ROWS; row++) {
+        // W każdym rzędzie jest 'row + 3' kołków (dla estetyki startujemy szerzej)
+        // Ale standard Plinko: Rząd 0 ma 3 kołki? Nie, klasycznie Rząd 0 ma 1 przerwę -> 2 kołki?
+        // Uproszczenie: Rząd i ma i+3 kołków, żeby kulka miała gdzie wpadać.
+        
+        // Zrobimy klasyczną piramidę: Rząd 0 = 3 piny. Rząd 16 = 19 pinów.
+        // Ilość "dziur" = row + 2.
+        
+        const pinsInRow = row + 3; 
+        const rowWidth = (pinsInRow - 1) * gapX;
+        const xOffset = startX - (rowWidth / 2);
+
+        for (let col = 0; col < pinsInRow; col++) {
+            plinkoPins.push({
+                x: xOffset + (col * gapX),
+                y: startY + (row * gapY),
+                r: 4 // Promień kołka
+            });
+        }
+    }
+
+    // Start pętli renderowania
+    if(!plinkoEngineRunning) {
+        plinkoEngineRunning = true;
+        requestAnimationFrame(plinkoLoop);
+    }
+}
+
+async function onPlinkoDrop() {
+    const amountInput = document.getElementById("plinko-amount");
+    const amount = parseInt(amountInput.value);
+
+    if (isNaN(amount) || amount <= 0) return showMessage("Podaj stawkę!", "error");
+    if (!currentUserId) return showMessage("Zaloguj się!", "error");
+    // Szybkie sprawdzenie lokalne (zabezpieczenie UI)
+    if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
+
+    // Efekt kliknięcia (opcjonalny)
+    const btn = document.getElementById("btn-plinko-drop");
+    btn.style.transform = "scale(0.95)";
+    setTimeout(() => btn.style.transform = "scale(1)", 100);
+
+    // 1. Logika Finansowa (Pobranie kasy)
+    try {
+        // Optimistic UI update (zdejmujemy kasę od razu wizualnie)
+        portfolio.cash -= amount;
+        updatePortfolioUI();
+
+        // Transaction w tle
+        await runTransaction(db, async (t) => {
+            const userRef = doc(db, "uzytkownicy", currentUserId);
+            const userDoc = await t.get(userRef);
+            const d = userDoc.data();
+            if (d.cash < amount) throw new Error("Brak środków (server)!");
+            
+            const newCash = d.cash - amount;
+            const newVal = calculateTotalValue(newCash, d.shares);
+            t.update(userRef, { cash: newCash, totalValue: newVal });
+        });
+
+        // 2. Logika Gry (Obliczenie trasy)
+        spawnPlinkoBall(amount);
+
+    } catch (e) {
+        // Rollback UI w razie błędu
+        portfolio.cash += amount;
+        updatePortfolioUI();
+        showMessage(e.message, "error");
+    }
+}
+
+function spawnPlinkoBall(betAmount) {
+    // Generowanie ścieżki (0 = Lewo, 1 = Prawo)
+    // Binomial distribution: Suma losowań określa indeks końcowy.
+    let path = [];
+    let finalBucketIndex = 0;
+
+    for(let i = 0; i < PLINKO_ROWS; i++) {
+        // 50/50 szansy na odbicie w prawo
+        const dir = Math.random() > 0.5 ? 1 : 0;
+        path.push(dir);
+        finalBucketIndex += dir;
+    }
+
+    // Utworzenie obiektu kulki
+    plinkoBalls.push({
+        x: 400 + (Math.random() * 4 - 2), // Lekki rozrzut startowy
+        y: 20,
+        vx: 0,
+        vy: 0,
+        radius: 6,
+        color: '#ff00cc', // Neon pink
+        path: path,         // Zaplanowana trasa
+        currentRow: 0,      // Obecny etap
+        finished: false,
+        bet: betAmount,
+        bucketIndex: finalBucketIndex
+    });
+}
+
+function plinkoLoop() {
+    // Czyszczenie
+    plinkoCtx.clearRect(0, 0, plinkoCanvas.width, plinkoCanvas.height);
+
+    // Rysowanie Kołków (Pins)
+    plinkoCtx.fillStyle = "white";
+    plinkoCtx.beginPath();
+    plinkoPins.forEach(p => {
+        plinkoCtx.moveTo(p.x, p.y);
+        plinkoCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    });
+    plinkoCtx.fill();
+
+    // Rysowanie i fizyka kulek
+    const gravity = 0.25;
+    const gapX = 40;
+    const gapY = 32;
+    const startX = 400;
+    const startY = 50;
+
+    for (let i = plinkoBalls.length - 1; i >= 0; i--) {
+        let b = plinkoBalls[i];
+        
+        if (b.finished) {
+            plinkoBalls.splice(i, 1);
+            continue;
+        }
+
+        // Prosta fizyka wizualna (Interpolacja trasy)
+        // Kulka "spada" do docelowego kołka w danym rzędzie
+        
+        // Cel X dla obecnego rzędu:
+        // Środek piramidy przesuwa się.
+        // W rzędzie 'r', środek to startX.
+        // Pozycja relatywna kulki to suma ruchów w prawo minus połowa rzędu.
+        
+        // Uproszczony algorytm wizualny (Target Seeking):
+        // Obliczamy gdzie kulka POWINNA być w oparciu o currentRow i path.
+        
+        // Sprawdzamy czy kulka minęła linię Y obecnego rzędu
+        const targetRowY = startY + (b.currentRow * gapY);
+        
+        if (b.y >= targetRowY) {
+            // Decyzja o odbiciu (Visual Bounce)
+            if (b.currentRow < PLINKO_ROWS) {
+                const moveRight = b.path[b.currentRow] === 1;
+                // Nadajemy prędkość w bok zależnie od ścieżki
+                // Dodajemy trochę losowości (noise) żeby wyglądało naturalnie
+                b.vx = (moveRight ? 1.5 : -1.5) + (Math.random() * 0.4 - 0.2);
+                b.vy = -1.5; // Odbicie w górę przy uderzeniu w kołek
+                b.currentRow++;
+            } else {
+                // Koniec gry - kulka wpada do bucketu
+                finishPlinkoBall(b);
+                b.finished = true;
+                continue;
+            }
+        }
+
+        // Fizyka
+        b.vy += gravity;
+        b.x += b.vx;
+        b.y += b.vy;
+
+        // Tłumienie poziome (opór powietrza)
+        b.vx *= 0.98;
+
+        // Rysowanie kulki
+        plinkoCtx.beginPath();
+        plinkoCtx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+        plinkoCtx.fillStyle = b.color;
+        plinkoCtx.shadowBlur = 10;
+        plinkoCtx.shadowColor = b.color;
+        plinkoCtx.fill();
+        plinkoCtx.shadowBlur = 0;
+    }
+
+    requestAnimationFrame(plinkoLoop);
+}
+
+async function finishPlinkoBall(ball) {
+    const multiplier = PLINKO_MULTIPLIERS[ball.bucketIndex];
+    const winAmount = ball.bet * multiplier;
+    const profit = winAmount - ball.bet;
+
+    // Animacja bucketu
+    const bucketEl = document.getElementById(`plinko-bucket-${ball.bucketIndex}`);
+    if(bucketEl) {
+        bucketEl.classList.add("hit");
+        setTimeout(() => bucketEl.classList.remove("hit"), 300);
+    }
+
+    // Dźwięk
+    if(multiplier >= 10) {
+        if(dom.audioKaching) {
+             dom.audioKaching.currentTime = 0;
+             dom.audioKaching.play().catch(()=>{});
+        }
+    } else if (multiplier < 1) {
+         // Opcjonalnie cichy dźwięk "pyk"
+    }
+
+    // Historia
+    addPlinkoHistory(multiplier);
+
+    // Zapis wygranej do bazy (tylko jeśli wygrana > 0, technicznie zawsze coś wraca, ale profit może być ujemny)
+    try {
+        await runTransaction(db, async (t) => {
+            const userRef = doc(db, "uzytkownicy", currentUserId);
+            const userDoc = await t.get(userRef);
+            const d = userDoc.data();
+            
+            const newCash = d.cash + winAmount;
+            const newZysk = (d.zysk || 0) + profit;
+            const newVal = calculateTotalValue(newCash, d.shares); // Helper z głównego kodu
+
+            t.update(userRef, { cash: newCash, zysk: newZysk, totalValue: newVal });
+        });
+        
+        if(multiplier >= 3) {
+            showNotification(`Plinko: ${multiplier}x (${formatujWalute(winAmount)})`, 'news', 'positive');
+        }
+
+    } catch(e) {
+        console.error("Plinko save error:", e);
+    }
+}
+
+function addPlinkoHistory(mult) {
+    const list = document.getElementById("plinko-history-list");
+    if(!list) return;
+
+    const item = document.createElement("div");
+    item.className = "crash-history-item"; // Używamy tej samej klasy co w Crash dla spójności
+    item.textContent = mult + "x";
+    
+    if(mult < 1) item.classList.add("bad");
+    else if(mult >= 3) item.classList.add("good");
+    else if(mult >= 10) item.classList.add("excellent");
+    
+    list.prepend(item);
+    if(list.children.length > 8) list.lastChild.remove();
+}
