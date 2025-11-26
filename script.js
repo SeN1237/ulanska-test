@@ -1967,7 +1967,11 @@ async function doCrashCashout() {
     dom.btnCrashAction.textContent = "WYPŁACONO!";
     dom.btnCrashAction.classList.remove("btn-cashout");
     dom.btnCrashAction.style.background = "#333";
-    dom.crashOverlayText.classList.add("cashed-out");
+    
+    // --- POPRAWKA TUTAJ (było crashOverlayText, jest crashMultiplierText) ---
+    dom.crashMultiplierText.classList.add("cashed-out"); 
+    // -----------------------------------------------------------------------
+    
     dom.crashInfo.textContent = `Wygrałeś ${formatujWalute(winAmount)}!`;
 
     // Dźwięk
