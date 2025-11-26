@@ -893,3 +893,87 @@ input:focus, select:focus { border-color: var(--accent-color); }
   0% { transform: rotateX(90deg); }
   100% { transform: rotateX(0deg); }
 }
+/* --- NOWY STYL NEWSÓW I PLOTEK --- */
+
+/* Kontener pojedynczego newsa/plotki */
+.feed-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    transition: transform 0.2s, background 0.2s;
+    animation: slideInLeft 0.4s ease;
+}
+
+.feed-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateX(5px);
+}
+
+/* Pasek koloru po lewej (szybka ocena: dobry/zły news) */
+.feed-item.positive {
+    border-left: 4px solid var(--green);
+    background: linear-gradient(90deg, rgba(0, 230, 118, 0.05) 0%, transparent 100%);
+}
+
+.feed-item.negative {
+    border-left: 4px solid var(--red);
+    background: linear-gradient(90deg, rgba(255, 23, 68, 0.05) 0%, transparent 100%);
+}
+
+/* Ikona po lewej */
+.feed-icon {
+    min-width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    background: rgba(0,0,0,0.3);
+}
+
+.positive .feed-icon { color: var(--green); box-shadow: 0 0 10px rgba(0, 230, 118, 0.2); }
+.negative .feed-icon { color: var(--red); box-shadow: 0 0 10px rgba(255, 23, 68, 0.2); }
+
+/* Treść */
+.feed-content {
+    flex: 1;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.feed-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+
+.feed-text {
+    color: var(--text-main);
+    font-weight: 500;
+}
+
+.feed-author {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.75rem;
+    color: var(--accent-color);
+    font-style: italic;
+    text-align: right;
+}
+
+/* Animacja wjazdu */
+@keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
