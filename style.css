@@ -1229,3 +1229,136 @@ input:focus, select:focus { border-color: var(--accent-color); }
         top: 70px;
     }
 }
+/* --- PŁYWAJĄCY CZAT (WIDGET) --- */
+
+/* Okrągły przycisk (FAB) */
+.chat-fab {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--accent-gradient);
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0, 210, 255, 0.4);
+    z-index: 9990; /* Wysoki index, żeby był nad wszystkim */
+    transition: transform 0.3s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.chat-fab:hover {
+    transform: scale(1.1) rotate(5deg);
+}
+
+/* Powiadomienie na przycisku (opcjonalnie) */
+#chat-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 20px;
+    height: 20px;
+    background: var(--red);
+    border-radius: 50%;
+    font-size: 0.8rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--bg-dark);
+}
+
+/* Okno czatu */
+#floating-chat-window {
+    position: fixed;
+    bottom: 90px; /* Nad przyciskiem */
+    left: 20px;
+    width: 320px;
+    height: 400px;
+    display: flex;
+    flex-direction: column;
+    z-index: 9991;
+    padding: 0; /* Reset paddingu glass-panel */
+    overflow: hidden;
+    transform-origin: bottom left;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Ukrywanie */
+#floating-chat-window.hidden {
+    display: none !important;
+}
+
+/* Nagłówek okna */
+.chat-header-floating {
+    background: rgba(0,0,0,0.4);
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.chat-header-floating h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--accent-color);
+}
+
+#close-chat-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.2rem;
+}
+#close-chat-btn:hover { color: var(--red); }
+
+/* Wnętrze czatu */
+.floating-feed {
+    flex: 1;
+    padding: 10px;
+    height: auto !important; /* Nadpisanie starego stylu */
+    background: rgba(0,0,0,0.2);
+}
+
+.floating-form {
+    padding: 10px;
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    gap: 5px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.floating-form input {
+    padding: 8px;
+    font-size: 0.9rem;
+}
+
+.floating-form button {
+    background: var(--accent-color);
+    border: none;
+    border-radius: 8px;
+    width: 40px;
+    cursor: pointer;
+    color: black;
+}
+
+/* Animacja otwierania */
+@keyframes popIn {
+    from { opacity: 0; transform: scale(0.5); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* Responsywność na telefony */
+@media (max-width: 480px) {
+    #floating-chat-window {
+        width: calc(100% - 40px);
+        height: 50vh;
+    }
+}
