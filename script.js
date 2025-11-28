@@ -47,21 +47,25 @@ let portfolio = {
     name: "Gość", cash: 0,
     shares: { ulanska: 0, rychbud: 0, brzozair: 0, cosmosanit: 0, nicorp: 0, igirium: 0 },
     stats: { totalTrades: 0, tipsPurchased: 0, bondsPurchased: 0 },
-    startValue: 100, zysk: 0, totalValue: 0, prestigeLevel: 0 
+    startValue: 100, zysk: 0, totalValue: 0, prestigeLevel: 0,
+    // Pola pomocnicze do animacji
+    displayedCash: undefined,
+    displayedTotal: undefined,
+    displayedProfit: undefined
 };
 
 // --- KONFIGURACJA PRESTIŻU I BLOKAD ---
-const PRESTIGE_REQUIREMENTS = [50000, 100000, 150000, 250000, 500000]; // 5 progów (0->1, 1->2... 4->5)
+const PRESTIGE_REQUIREMENTS = [50000, 100000, 150000, 250000, 500000]; // 5 progów
 const CRYPTO_PRESTIGE_REQUIREMENT = 4; // Krypto od poziomu 4
 
 const GAME_UNLOCKS = {
-    'betting': 0, // Dostępne dla wszystkich
-    'radio': 0,   // Dostępne dla wszystkich
-    'pvp': 0,     // Dostępne dla wszystkich
-    'casino': 1,  // Ruletka (Lvl 1)
-    'poker': 2,   // Video Poker (Lvl 2)
-    'plinko': 3,  // Plinko (Lvl 3)
-    'crash': 5    // Crash (Lvl 5)
+    'betting': 0, 
+    'radio': 0,   
+    'pvp': 0,     
+    'casino': 1,  
+    'poker': 2,   
+    'plinko': 3,  
+    'crash': 5    
 };
 
 const COMPANY_ORDER = ["ulanska", "rychbud", "brzozair", "cosmosanit", "nicorp", "igirium"];
@@ -70,7 +74,6 @@ const CHART_COLORS = ['#00d2ff', '#FF6384', '#36A2EB', '#4BC0C0', '#9966FF', '#F
 // Zmienne UI/Logic
 let chart = null;
 let portfolioChart = null; 
-let modalPortfolioChart = null; 
 let currentUserId = null;
 let chartHasStarted = false; 
 let initialNewsLoaded = false; 
@@ -90,7 +93,6 @@ let crashIsRunning = false;
 let crashHasCashedOut = false;
 let crashBetAmount = 0;
 let crashCurvePoints = [];
-let crashSpeed = 0.05;
 let crashCanvas, crashCtx;
 let crashCurrentCrashPoint = 0;
 
@@ -138,7 +140,7 @@ function showMessage(msg, type) {
 }
 function showAuthMessage(msg, type="info") { dom.authMessage.textContent = msg; dom.authMessage.style.color = type==="error" ? "var(--red)" : "var(--green)"; }
 
-// --- FUNKCJA AKTUALIZACJI CENY Z ANIMACJĄ ---
+// --- ANIMOWANA AKTUALIZACJA CENY (GŁÓWNY WIDOK) ---
 function updatePriceUI() { 
     if(!dom.stockPrice) return;
 
@@ -164,8 +166,6 @@ function checkCryptoAccess() {
     
     if(dom.orderPanel) {
         dom.orderPanel.classList.toggle("crypto-locked", locked);
-        
-        // Aktualizacja tekstu w panelu, żeby odzwierciedlał nowy wymóg
         const msgEl = dom.orderPanel.querySelector(".crypto-gate-message p");
         if(msgEl && locked) {
             msgEl.textContent = `Wymagany Prestiż ${CRYPTO_PRESTIGE_REQUIREMENT} (⭐️⭐️⭐️⭐️)`;
@@ -230,7 +230,7 @@ onSnapshot(cenyDocRef, (docSnap) => {
             }
         }
         updatePriceUI(); 
-        // updatePortfolioUI(); // Opcjonalne: jeśli wartość portfela zależy od cen, można odkomentować, ale może powodować dużo animacji
+        updatePortfolioUI(); // ZAKTUALIZOWANO: Wywołujemy portfel, by przeliczył wartość akcji
         updateTickerTape(); 
 
         const chartDataReady = market[currentCompanyId] && market[currentCompanyId].history.length > 0;
@@ -459,7 +459,6 @@ document.addEventListener("DOMContentLoaded", () => {
     let isMuted = localStorage.getItem('gameMuted') === 'true';
 
     function updateMuteState() {
-        // Aktualizacja ikony
         const icon = dom.muteButton.querySelector('i');
         if (isMuted) {
             icon.classList.remove('fa-volume-high');
@@ -468,19 +467,15 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             icon.classList.remove('fa-volume-xmark');
             icon.classList.add('fa-volume-high');
-            dom.muteButton.style.color = ''; // reset do CSS
+            dom.muteButton.style.color = ''; 
         }
-
-        // Fizyczne wyciszenie elementów audio
         if(dom.audioKaching) dom.audioKaching.muted = isMuted;
         if(dom.audioError) dom.audioError.muted = isMuted;
         if(dom.audioNews) dom.audioNews.muted = isMuted;
     }
 
     if(dom.muteButton) {
-        // Ustaw stan początkowy
         updateMuteState();
-
         dom.muteButton.addEventListener("click", () => {
             isMuted = !isMuted;
             localStorage.setItem('gameMuted', isMuted);
@@ -494,17 +489,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function switchGameTab(e) {
         const targetTab = e.currentTarget.dataset.gameTab;
-
-        // --- SPRAWDZANIE POZIOMU PRESTIŻU ---
         const requiredLevel = GAME_UNLOCKS[targetTab] || 0;
         
         if (portfolio.prestigeLevel < requiredLevel) {
             const stars = '⭐️'.repeat(requiredLevel);
             showMessage(`Wymagany poziom prestiżu: ${requiredLevel} (${stars})`, "error");
             if(dom.audioError) dom.audioError.play().catch(()=>{});
-            return; // Blokada
+            return; 
         }
-        // ------------------------------------
 
         gameNavButtons.forEach(btn => {
             btn.classList.toggle('active', btn.dataset.gameTab === targetTab);
@@ -582,36 +574,31 @@ function listenToPortfolioData(userId) {
     });
 }
 
-// --- ZAKTUALIZOWANA FUNKCJA PORTFELA Z ANIMACJĄ ---
+// --- ANIMOWANA AKTUALIZACJA PORTFELA ---
 function updatePortfolioUI() {
     if (!dom || !dom.username) return;
     
     const stars = getPrestigeStars(portfolio.prestigeLevel);
     dom.username.innerHTML = `${portfolio.name} ${stars}`;
     
-    // --- ANIMACJA ROLLING NUMBERS ---
-    // 1. Inicjalizacja przy pierwszym uruchomieniu
+    // --- 1. ANIMACJA GOTÓWKI (Rolling Numbers) ---
     if (typeof portfolio.displayedCash === 'undefined') {
         portfolio.displayedCash = portfolio.cash; 
         dom.cash.textContent = formatujWalute(portfolio.cash);
         if(dom.entertainmentCash) dom.entertainmentCash.textContent = formatujWalute(portfolio.cash);
     } else {
-        // 2. Jeśli wartość się zmieniła, uruchamiamy animację
         if (portfolio.displayedCash !== portfolio.cash) {
             animateValue(dom.cash, portfolio.displayedCash, portfolio.cash, 1000); 
-            
             if(dom.entertainmentCash) {
                 animateValue(dom.entertainmentCash, portfolio.displayedCash, portfolio.cash, 1000);
             }
-            
-            portfolio.displayedCash = portfolio.cash; // Aktualizujemy zapamiętaną wartość
+            portfolio.displayedCash = portfolio.cash; 
         }
     }
-    // --- KONIEC SEKCJI ANIMACJI ---
 
+    // --- 2. OBLICZANIE WARTOŚCI PORTFELA NA BIEŻĄCO ---
     let html = "";
     let sharesValue = 0;
-    
     const series = [portfolio.cash]; 
     const labels = ['Gotówka'];
 
@@ -641,8 +628,24 @@ function updatePortfolioUI() {
     const total = portfolio.cash + sharesValue;
     const profit = total - portfolio.startValue;
 
-    dom.totalValue.textContent = formatujWalute(total);
-    dom.totalProfit.textContent = formatujWalute(profit);
+    // --- 3. ANIMACJA CAŁKOWITEJ WARTOŚCI ---
+    if (typeof portfolio.displayedTotal === 'undefined') {
+        portfolio.displayedTotal = total;
+        dom.totalValue.textContent = formatujWalute(total);
+    } else if (portfolio.displayedTotal !== total) {
+        animateValue(dom.totalValue, portfolio.displayedTotal, total, 1000);
+        portfolio.displayedTotal = total;
+    }
+
+    // --- 4. ANIMACJA ZYSKU ---
+    if (typeof portfolio.displayedProfit === 'undefined') {
+        portfolio.displayedProfit = profit;
+        dom.totalProfit.textContent = formatujWalute(profit);
+    } else if (portfolio.displayedProfit !== profit) {
+        animateValue(dom.totalProfit, portfolio.displayedProfit, profit, 1000);
+        portfolio.displayedProfit = profit;
+    }
+    
     dom.totalProfit.style.color = profit >= 0 ? "var(--green)" : "var(--red)";
 
     if (!portfolioChart) {
@@ -2487,7 +2490,7 @@ function resetPaytableHighlight() {
     document.querySelectorAll('.pay-row').forEach(r => r.classList.remove('active-win'));
 }
 
-// --- FUNKCJA ROLLING NUMBERS ---
+// --- FUNKCJA ROLLING NUMBERS (ANIMACJA CYFEREK) ---
 function animateValue(obj, start, end, duration) {
     if (!obj) return;
     // Jeśli różnica jest znikoma, po prostu wyświetl wynik
