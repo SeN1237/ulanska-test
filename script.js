@@ -573,7 +573,21 @@ function updatePortfolioUI() {
     const stars = getPrestigeStars(portfolio.prestigeLevel);
     dom.username.innerHTML = `${portfolio.name} ${stars}`;
     
-    dom.cash.textContent = formatujWalute(portfolio.cash);
+    // --- START ZMIANY ROLLING NUMBERS ---
+    
+    // 1. Sprawdzamy, czy mamy zapisaną poprzednią wartość. Jeśli nie, to startujemy od 0 lub aktualnej.
+    if (typeof portfolio.displayedCash === 'undefined') {
+        portfolio.displayedCash = portfolio.cash; // Pierwsze uruchomienie bez animacji
+        dom.cash.textContent = formatujWalute(portfolio.cash);
+    } else {
+        // 2. Jeśli wartość się zmieniła, uruchamiamy animację
+        if (portfolio.displayedCash !== portfolio.cash) {
+            animateValue(dom.cash, portfolio.displayedCash, portfolio.cash, 1000); // 1000ms = 1 sekunda animacji
+            portfolio.displayedCash = portfolio.cash; // Aktualizujemy zapamiętaną wartość
+        }
+    }
+    
+    // --- KONIEC ZMIANY ---
     if(dom.entertainmentCash) dom.entertainmentCash.textContent = formatujWalute(portfolio.cash);
 
     let html = "";
@@ -2452,4 +2466,27 @@ function highlightPaytableRow(handName) {
 
 function resetPaytableHighlight() {
     document.querySelectorAll('.pay-row').forEach(r => r.classList.remove('active-win'));
+}
+// --- FUNKCJA ROLLING NUMBERS ---
+function animateValue(obj, start, end, duration) {
+    if (start === end) return;
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        
+        // Obliczamy aktualną wartość w danej klatce animacji
+        const currentVal = Math.floor(progress * (end - start) + start);
+        
+        // Wyświetlamy sformatowaną walutę
+        obj.textContent = formatujWalute(currentVal);
+        
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        } else {
+            // Na koniec upewniamy się, że wyświetlamy dokładną wartość końcową
+            obj.textContent = formatujWalute(end);
+        }
+    };
+    window.requestAnimationFrame(step);
 }
