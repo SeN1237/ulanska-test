@@ -2636,18 +2636,16 @@ function onTileClick(index) {
     // A. TRAFIENIE MINY (PRZEGRANA)
     if (minesGridData[index] === 'bomb') {
         tile.classList.add("revealed-bomb");
-        if(dom.audioError) dom.audioError.play().catch(()=>{});
+        if(dom.audioError) dom.audioError.play().catch(()=>{}); // Dźwięk błędu zostaje przy przegranej
         revealAllMines();
         endMinesGame(false); // False = przegrana
     } 
     // B. TRAFIENIE DIAMENTU (DALEJ)
     else {
         tile.classList.add("revealed-gem");
-        if(dom.audioKaching) {
-             const clone = dom.audioKaching.cloneNode(); // Clone żeby dźwięki mogły nakładać się szybko
-             clone.volume = 0.5;
-             clone.play().catch(()=>{});
-        }
+        
+        // --- USUNIĘTO ODTWARZANIE DŹWIĘKU TUTAJ ---
+        // Dźwięk będzie tylko przy przycisku "Wypłać"
         
         minesRevealedCount++;
         calculateMinesMultiplier();
@@ -2656,7 +2654,7 @@ function onTileClick(index) {
         // Sprawdzenie czy wyczyścił planszę (wygrał max)
         const totalSafe = 25 - minesCount;
         if (minesRevealedCount === totalSafe) {
-            endMinesGame(true); // Auto cashout
+            endMinesGame(true); // Auto cashout (tu dźwięk się odegra z funkcji endMinesGame)
         }
     }
 }
