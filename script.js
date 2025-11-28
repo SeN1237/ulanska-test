@@ -138,9 +138,24 @@ function showMessage(msg, type) {
 }
 function showAuthMessage(msg, type="info") { dom.authMessage.textContent = msg; dom.authMessage.style.color = type==="error" ? "var(--red)" : "var(--green)"; }
 
+// --- FUNKCJA AKTUALIZACJI CENY Z ANIMACJĄ ---
 function updatePriceUI() { 
-    const p = market[currentCompanyId].price; 
-    if(dom.stockPrice) dom.stockPrice.textContent = formatujWalute(p); 
+    if(!dom.stockPrice) return;
+
+    const company = market[currentCompanyId];
+    const currentPrice = company.price;
+    
+    // Sprawdzamy, jaką cenę wyświetlamy obecnie
+    if (typeof company.displayedPrice === 'undefined') {
+        company.displayedPrice = currentPrice;
+        dom.stockPrice.textContent = formatujWalute(currentPrice);
+    } else {
+        if (company.displayedPrice !== currentPrice) {
+            // Animujemy od starej ceny do nowej
+            animateValue(dom.stockPrice, company.displayedPrice, currentPrice, 1000);
+            company.displayedPrice = currentPrice;
+        }
+    }
 }
 
 function checkCryptoAccess() {
@@ -215,7 +230,7 @@ onSnapshot(cenyDocRef, (docSnap) => {
             }
         }
         updatePriceUI(); 
-        updatePortfolioUI(); 
+        // updatePortfolioUI(); // Opcjonalne: jeśli wartość portfela zależy od cen, można odkomentować, ale może powodować dużo animacji
         updateTickerTape(); 
 
         const chartDataReady = market[currentCompanyId] && market[currentCompanyId].history.length > 0;
@@ -440,7 +455,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (currentUserId) showUserProfile(currentUserId);
     });
 
-	// --- OBSŁUGA WYCISZANIA (MUTE) ---
+    // --- OBSŁUGA WYCISZANIA (MUTE) ---
     let isMuted = localStorage.getItem('gameMuted') === 'true';
 
     function updateMuteState() {
@@ -567,28 +582,32 @@ function listenToPortfolioData(userId) {
     });
 }
 
+// --- ZAKTUALIZOWANA FUNKCJA PORTFELA Z ANIMACJĄ ---
 function updatePortfolioUI() {
     if (!dom || !dom.username) return;
     
     const stars = getPrestigeStars(portfolio.prestigeLevel);
     dom.username.innerHTML = `${portfolio.name} ${stars}`;
     
-    // --- START ZMIANY ROLLING NUMBERS ---
-    
-    // 1. Sprawdzamy, czy mamy zapisaną poprzednią wartość. Jeśli nie, to startujemy od 0 lub aktualnej.
+    // --- ANIMACJA ROLLING NUMBERS ---
+    // 1. Inicjalizacja przy pierwszym uruchomieniu
     if (typeof portfolio.displayedCash === 'undefined') {
-        portfolio.displayedCash = portfolio.cash; // Pierwsze uruchomienie bez animacji
+        portfolio.displayedCash = portfolio.cash; 
         dom.cash.textContent = formatujWalute(portfolio.cash);
+        if(dom.entertainmentCash) dom.entertainmentCash.textContent = formatujWalute(portfolio.cash);
     } else {
         // 2. Jeśli wartość się zmieniła, uruchamiamy animację
         if (portfolio.displayedCash !== portfolio.cash) {
-            animateValue(dom.cash, portfolio.displayedCash, portfolio.cash, 1000); // 1000ms = 1 sekunda animacji
+            animateValue(dom.cash, portfolio.displayedCash, portfolio.cash, 1000); 
+            
+            if(dom.entertainmentCash) {
+                animateValue(dom.entertainmentCash, portfolio.displayedCash, portfolio.cash, 1000);
+            }
+            
             portfolio.displayedCash = portfolio.cash; // Aktualizujemy zapamiętaną wartość
         }
     }
-    
-    // --- KONIEC ZMIANY ---
-    if(dom.entertainmentCash) dom.entertainmentCash.textContent = formatujWalute(portfolio.cash);
+    // --- KONIEC SEKCJI ANIMACJI ---
 
     let html = "";
     let sharesValue = 0;
@@ -2467,24 +2486,29 @@ function highlightPaytableRow(handName) {
 function resetPaytableHighlight() {
     document.querySelectorAll('.pay-row').forEach(r => r.classList.remove('active-win'));
 }
+
 // --- FUNKCJA ROLLING NUMBERS ---
 function animateValue(obj, start, end, duration) {
-    if (start === end) return;
+    if (!obj) return;
+    // Jeśli różnica jest znikoma, po prostu wyświetl wynik
+    if (start === end) {
+        obj.textContent = formatujWalute(end);
+        return;
+    }
+
     let startTimestamp = null;
     const step = (timestamp) => {
         if (!startTimestamp) startTimestamp = timestamp;
         const progress = Math.min((timestamp - startTimestamp) / duration, 1);
         
-        // Obliczamy aktualną wartość w danej klatce animacji
-        const currentVal = Math.floor(progress * (end - start) + start);
+        // Używamy matematyki dla liczb zmiennoprzecinkowych (zachowujemy grosze)
+        const currentVal = start + (end - start) * progress;
         
-        // Wyświetlamy sformatowaną walutę
         obj.textContent = formatujWalute(currentVal);
         
         if (progress < 1) {
             window.requestAnimationFrame(step);
         } else {
-            // Na koniec upewniamy się, że wyświetlamy dokładną wartość końcową
             obj.textContent = formatujWalute(end);
         }
     };
