@@ -54,6 +54,14 @@ let portfolio = {
     displayedProfit: undefined
 };
 
+// --- MINES VARS (ZMIENNE GRY MINES) ---
+let minesGameActive = false;
+let minesGridData = []; // Tablica 25 elementów
+let minesRevealedCount = 0;
+let minesBetAmount = 0;
+let minesCount = 3;
+let minesCurrentMultiplier = 1.0;
+
 // --- KONFIGURACJA PRESTIŻU I BLOKAD ---
 const PRESTIGE_REQUIREMENTS = [50000, 100000, 150000, 250000, 500000]; // 5 progów
 const CRYPTO_PRESTIGE_REQUIREMENT = 4; // Krypto od poziomu 4
@@ -62,7 +70,8 @@ const GAME_UNLOCKS = {
     'betting': 0, 
     'radio': 0,   
     'pvp': 0,     
-    'casino': 1,  
+    'casino': 1,
+    'mines': 2,   // <--- DODANO MINES (Prestiż 2)
     'poker': 2,   
     'plinko': 3,  
     'crash': 5    
@@ -454,6 +463,11 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.userInfo.addEventListener("click", () => {
     if (currentUserId) showUserProfile(currentUserId);
     });
+
+    // --- MINES LISTENER (DODANO) ---
+    const btnMines = document.getElementById("btn-mines-action");
+    if(btnMines) btnMines.addEventListener("click", onMinesAction);
+    initMinesGrid(); // Inicjalizacja siatki na starcie
 
     // --- OBSŁUGA WYCISZANIA (MUTE) ---
     let isMuted = localStorage.getItem('gameMuted') === 'true';
@@ -2225,6 +2239,22 @@ async function finishPlinkoBall(ball) {
         }
     } 
 
+    addPlinkoHistory(mult) {
+    const list = document.getElementById("plinko-history-list");
+    if(!list) return;
+
+    const item = document.createElement("div");
+    item.className = "crash-history-item"; 
+    item.textContent = mult + "x";
+    
+    if(mult < 1) item.classList.add("bad");
+    else if(mult >= 3) item.classList.add("good");
+    else if(mult >= 10) item.classList.add("excellent");
+    
+    list.prepend(item);
+    if(list.children.length > 8) list.lastChild.remove();
+    }
+
     addPlinkoHistory(multiplier);
 
     try {
@@ -2249,21 +2279,7 @@ async function finishPlinkoBall(ball) {
     }
 }
 
-function addPlinkoHistory(mult) {
-    const list = document.getElementById("plinko-history-list");
-    if(!list) return;
 
-    const item = document.createElement("div");
-    item.className = "crash-history-item"; 
-    item.textContent = mult + "x";
-    
-    if(mult < 1) item.classList.add("bad");
-    else if(mult >= 3) item.classList.add("good");
-    else if(mult >= 10) item.classList.add("excellent");
-    
-    list.prepend(item);
-    if(list.children.length > 8) list.lastChild.remove();
-}
 // ==========================================
 // === VIDEO POKER LOGIC (Jacks or Better) ===
 // ==========================================
@@ -2516,4 +2532,227 @@ function animateValue(obj, start, end, duration) {
         }
     };
     window.requestAnimationFrame(step);
+}
+
+// ==========================================
+// === MINES GAME LOGIC (DODANO) ===
+// ==========================================
+
+function initMinesGrid() {
+    const gridEl = document.getElementById("mines-grid");
+    if (!gridEl) return;
+    gridEl.innerHTML = "";
+
+    for (let i = 0; i < 25; i++) {
+        const btn = document.createElement("button");
+        btn.className = "mine-tile";
+        btn.dataset.index = i;
+        btn.onclick = () => onTileClick(i);
+        btn.disabled = true; // Domyślnie zablokowane
+        gridEl.appendChild(btn);
+    }
+}
+
+async function onMinesAction() {
+    const amountInput = document.getElementById("mines-amount");
+    const countSelect = document.getElementById("mines-count-select");
+    const btn = document.getElementById("btn-mines-action");
+    const gridEl = document.getElementById("mines-grid");
+
+    // 1. START GRY
+    if (!minesGameActive) {
+        const amount = parseFloat(amountInput.value);
+        const mines = parseInt(countSelect.value);
+
+        if (isNaN(amount) || amount <= 0) return showMessage("Podaj stawkę!", "error");
+        if (!currentUserId) return showMessage("Zaloguj się!", "error");
+        if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
+
+        try {
+            // Pobranie kasy (start gry)
+            await runTransaction(db, async (t) => {
+                const userRef = doc(db, "uzytkownicy", currentUserId);
+                const userDoc = await t.get(userRef);
+                const d = userDoc.data();
+                if (d.cash < amount) throw new Error("Brak środków!");
+                
+                const newCash = d.cash - amount;
+                const newVal = calculateTotalValue(newCash, d.shares);
+                t.update(userRef, { cash: newCash, totalValue: newVal });
+            });
+            
+            // UI Update
+            portfolio.cash -= amount;
+            updatePortfolioUI();
+
+            // Setup gry
+            minesGameActive = true;
+            minesBetAmount = amount;
+            minesCount = mines;
+            minesRevealedCount = 0;
+            minesCurrentMultiplier = 1.0;
+            
+            // Generowanie min (lokalnie)
+            minesGridData = Array(25).fill('gem');
+            let placed = 0;
+            while (placed < mines) {
+                const idx = Math.floor(Math.random() * 25);
+                if (minesGridData[idx] === 'gem') {
+                    minesGridData[idx] = 'bomb';
+                    placed++;
+                }
+            }
+
+            // Reset UI kafelków
+            const tiles = gridEl.querySelectorAll(".mine-tile");
+            tiles.forEach(t => {
+                t.className = "mine-tile";
+                t.disabled = false;
+            });
+
+            // Zmiana przycisku na Cashout
+            btn.textContent = "WYPŁAĆ (0.00 zł)";
+            btn.classList.add("cashout-mode");
+            amountInput.disabled = true;
+            countSelect.disabled = true;
+
+            updateMinesInfo();
+
+        } catch (e) {
+            showMessage(e.message, "error");
+        }
+    } 
+    // 2. CASHOUT (Wypłata)
+    else {
+        await endMinesGame(true);
+    }
+}
+
+function onTileClick(index) {
+    if (!minesGameActive) return;
+
+    const tile = document.querySelector(`.mine-tile[data-index="${index}"]`);
+    if (tile.classList.contains("revealed-gem")) return; // Już odkryte
+
+    // A. TRAFIENIE MINY (PRZEGRANA)
+    if (minesGridData[index] === 'bomb') {
+        tile.classList.add("revealed-bomb");
+        if(dom.audioError) dom.audioError.play().catch(()=>{});
+        revealAllMines();
+        endMinesGame(false); // False = przegrana
+    } 
+    // B. TRAFIENIE DIAMENTU (DALEJ)
+    else {
+        tile.classList.add("revealed-gem");
+        if(dom.audioKaching) {
+             const clone = dom.audioKaching.cloneNode(); 
+             clone.volume = 0.5;
+             clone.play().catch(()=>{});
+        }
+        
+        minesRevealedCount++;
+        calculateMinesMultiplier();
+        updateMinesInfo();
+
+        // Sprawdzenie czy wyczyścił planszę (wygrał max)
+        const totalSafe = 25 - minesCount;
+        if (minesRevealedCount === totalSafe) {
+            endMinesGame(true); // Auto cashout
+        }
+    }
+}
+
+function calculateMinesMultiplier() {
+    const tilesLeft = 25 - (minesRevealedCount - 1); 
+    const safeLeft = (25 - minesCount) - (minesRevealedCount - 1);
+    
+    const moveMultiplier = tilesLeft / safeLeft;
+    // House Edge (3%)
+    minesCurrentMultiplier *= (moveMultiplier * 0.97); 
+}
+
+function updateMinesInfo() {
+    const multEl = document.getElementById("mines-next-multiplier");
+    const winEl = document.getElementById("mines-current-win");
+    const btn = document.getElementById("btn-mines-action");
+
+    const currentWin = minesBetAmount * minesCurrentMultiplier;
+    
+    multEl.textContent = minesCurrentMultiplier.toFixed(2) + "x";
+    winEl.textContent = formatujWalute(currentWin);
+    
+    if (minesGameActive) {
+        if (minesRevealedCount === 0) {
+             btn.textContent = "WYPŁAĆ (Zwrot)";
+             btn.disabled = true; 
+        } else {
+             btn.textContent = `WYPŁAĆ (${formatujWalute(currentWin)})`;
+             btn.disabled = false;
+        }
+    }
+}
+
+async function endMinesGame(win) {
+    minesGameActive = false;
+    
+    const amountInput = document.getElementById("mines-amount");
+    const countSelect = document.getElementById("mines-count-select");
+    const btn = document.getElementById("btn-mines-action");
+    const tiles = document.querySelectorAll(".mine-tile");
+
+    // Blokada planszy
+    tiles.forEach(t => t.disabled = true);
+    
+    if (win) {
+        const winAmount = minesBetAmount * minesCurrentMultiplier;
+        const profit = winAmount - minesBetAmount;
+
+        try {
+            await runTransaction(db, async (t) => {
+                const userRef = doc(db, "uzytkownicy", currentUserId);
+                const userDoc = await t.get(userRef);
+                const d = userDoc.data();
+                
+                const newCash = d.cash + winAmount;
+                const newZysk = (d.zysk || 0) + profit;
+                const newVal = calculateTotalValue(newCash, d.shares);
+                t.update(userRef, { cash: newCash, zysk: newZysk, totalValue: newVal });
+            });
+            
+            showNotification(`Mines: Wygrana ${formatujWalute(winAmount)}`, 'news', 'positive');
+            if(dom.audioKaching) dom.audioKaching.play().catch(()=>{});
+            
+            revealAllMines(true); 
+
+        } catch(e) {
+            console.error("Mines save error", e);
+        }
+        
+        btn.textContent = "WYGRANA!";
+        btn.style.background = "var(--green)";
+    } else {
+        btn.textContent = "PRZEGRANA";
+        btn.style.background = "var(--red)";
+    }
+
+    setTimeout(() => {
+        btn.textContent = "GRAJ";
+        btn.classList.remove("cashout-mode");
+        btn.style.background = ""; 
+        btn.disabled = false;
+        amountInput.disabled = false;
+        countSelect.disabled = false;
+    }, 2000);
+}
+
+function revealAllMines(dimmed = false) {
+    const tiles = document.querySelectorAll(".mine-tile");
+    tiles.forEach((t, idx) => {
+        if (minesGridData[idx] === 'bomb') {
+            t.classList.add("revealed-bomb");
+            if (dimmed) t.classList.add("dimmed");
+        } else if (!t.classList.contains("revealed-gem")) {
+            t.classList.add("dimmed"); 
+        }
+    });
 }
