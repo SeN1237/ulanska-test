@@ -1746,3 +1746,141 @@ input:focus, select:focus { border-color: var(--accent-color); }
     max-width: 600px;
     margin: 0 auto;
 }
+/* --- MINES GAME STYLES --- */
+.mines-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.mines-controls-panel {
+    flex: 1;
+    min-width: 250px;
+    max-width: 300px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.input-group-game {
+    margin-bottom: 15px;
+    text-align: left;
+}
+
+.input-group-game label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+}
+
+.mines-info-box {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 0.9rem;
+}
+
+/* Siatka gry */
+.mines-grid-container {
+    flex: 0 0 auto;
+    background: #0f1923; /* Ciemne tło siatki */
+    padding: 15px;
+    border-radius: 12px;
+    border: 2px solid #2c3e50;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+}
+
+.mines-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    width: 300px;
+    height: 300px;
+}
+
+.mine-tile {
+    background: #2f3640;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.1s, background 0.2s;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 0 #181d24;
+}
+
+.mine-tile:hover:not(:disabled) {
+    background: #3e4857;
+    transform: translateY(-2px);
+}
+
+.mine-tile:active:not(:disabled) {
+    transform: translateY(2px);
+    box-shadow: none;
+}
+
+.mine-tile:disabled {
+    cursor: default;
+    transform: none;
+    box-shadow: none;
+    opacity: 1; /* Keep visibility high */
+}
+
+/* Stany kafelków */
+.mine-tile.revealed-gem {
+    background: #0f3847; /* Ciemny turkus */
+    border: 2px solid var(--green);
+}
+
+.mine-tile.revealed-gem::after {
+    content: '💎';
+    font-size: 1.5rem;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.mine-tile.revealed-bomb {
+    background: #441818;
+    border: 2px solid var(--red);
+}
+
+.mine-tile.revealed-bomb::after {
+    content: '💣';
+    font-size: 1.5rem;
+    animation: shake 0.5s;
+}
+
+.mine-tile.dimmed {
+    opacity: 0.3;
+}
+
+/* Przycisk Cashout */
+#btn-mines-action.cashout-mode {
+    background: var(--green);
+    color: #000;
+    box-shadow: 0 0 15px rgba(0, 230, 118, 0.4);
+}
+
+@keyframes popIn {
+    0% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@media (max-width: 700px) {
+    .mines-wrapper {
+        flex-direction: column-reverse;
+        align-items: center;
+    }
+    .mines-grid-container {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+}
