@@ -54,14 +54,6 @@ let portfolio = {
     displayedProfit: undefined
 };
 
-// --- MINES VARS (ZMIENNE GRY MINES) ---
-let minesGameActive = false;
-let minesGridData = []; // Tablica 25 elementów
-let minesRevealedCount = 0;
-let minesBetAmount = 0;
-let minesCount = 3;
-let minesCurrentMultiplier = 1.0;
-
 // --- KONFIGURACJA PRESTIŻU I BLOKAD ---
 const PRESTIGE_REQUIREMENTS = [50000, 100000, 150000, 250000, 500000]; // 5 progów
 const CRYPTO_PRESTIGE_REQUIREMENT = 4; // Krypto od poziomu 4
@@ -70,9 +62,9 @@ const GAME_UNLOCKS = {
     'betting': 0, 
     'radio': 0,   
     'pvp': 0,     
-    'casino': 1,
-    'mines': 2,   // <--- DODANO MINES (Prestiż 2)
-    'poker': 2,   
+    'casino': 1,  
+    'poker': 2,  
+    'mines': 2,   // <--- Dodano (wymaga 2 poziomu, albo zmień na 0 jak chcesz) 
     'plinko': 3,  
     'crash': 5    
 };
@@ -119,6 +111,14 @@ let unsubscribeActiveBets = null;
 let unsubscribePvP = null;
 
 let dom = {};
+
+// --- MINES VARS ---
+let minesGameActive = false;
+let minesGridData = []; // Tablica 25 elementów (true = mina, false = diament)
+let minesRevealedCount = 0;
+let minesBetAmount = 0;
+let minesCount = 3;
+let minesCurrentMultiplier = 1.0;
 
 // --- FUNKCJE POMOCNICZE ---
 function generateInitialCandles(count, basePrice) {
@@ -463,11 +463,12 @@ document.addEventListener("DOMContentLoaded", () => {
     dom.userInfo.addEventListener("click", () => {
     if (currentUserId) showUserProfile(currentUserId);
     });
+	
+	// Wewnątrz DOMContentLoaded:
+const btnMines = document.getElementById("btn-mines-action");
+if(btnMines) btnMines.addEventListener("click", onMinesAction);
+initMinesGrid(); // Funkcja rysująca pustą siatkę na start
 
-    // --- MINES LISTENER (DODANO) ---
-    const btnMines = document.getElementById("btn-mines-action");
-    if(btnMines) btnMines.addEventListener("click", onMinesAction);
-    initMinesGrid(); // Inicjalizacja siatki na starcie
 
     // --- OBSŁUGA WYCISZANIA (MUTE) ---
     let isMuted = localStorage.getItem('gameMuted') === 'true';
@@ -2239,22 +2240,6 @@ async function finishPlinkoBall(ball) {
         }
     } 
 
-    addPlinkoHistory(mult) {
-    const list = document.getElementById("plinko-history-list");
-    if(!list) return;
-
-    const item = document.createElement("div");
-    item.className = "crash-history-item"; 
-    item.textContent = mult + "x";
-    
-    if(mult < 1) item.classList.add("bad");
-    else if(mult >= 3) item.classList.add("good");
-    else if(mult >= 10) item.classList.add("excellent");
-    
-    list.prepend(item);
-    if(list.children.length > 8) list.lastChild.remove();
-    }
-
     addPlinkoHistory(multiplier);
 
     try {
@@ -2279,7 +2264,21 @@ async function finishPlinkoBall(ball) {
     }
 }
 
+function addPlinkoHistory(mult) {
+    const list = document.getElementById("plinko-history-list");
+    if(!list) return;
 
+    const item = document.createElement("div");
+    item.className = "crash-history-item"; 
+    item.textContent = mult + "x";
+    
+    if(mult < 1) item.classList.add("bad");
+    else if(mult >= 3) item.classList.add("good");
+    else if(mult >= 10) item.classList.add("excellent");
+    
+    list.prepend(item);
+    if(list.children.length > 8) list.lastChild.remove();
+}
 // ==========================================
 // === VIDEO POKER LOGIC (Jacks or Better) ===
 // ==========================================
@@ -2535,7 +2534,7 @@ function animateValue(obj, start, end, duration) {
 }
 
 // ==========================================
-// === MINES GAME LOGIC (DODANO) ===
+// === MINES GAME LOGIC ===
 // ==========================================
 
 function initMinesGrid() {
@@ -2548,7 +2547,7 @@ function initMinesGrid() {
         btn.className = "mine-tile";
         btn.dataset.index = i;
         btn.onclick = () => onTileClick(i);
-        btn.disabled = true; // Domyślnie zablokowane
+        btn.disabled = true; // Domyślnie zablokowane, dopóki nie klikniesz Start
         gridEl.appendChild(btn);
     }
 }
@@ -2592,7 +2591,7 @@ async function onMinesAction() {
             minesRevealedCount = 0;
             minesCurrentMultiplier = 1.0;
             
-            // Generowanie min (lokalnie)
+            // Generowanie min (lokalnie - w wersji pro powinno być na serwerze)
             minesGridData = Array(25).fill('gem');
             let placed = 0;
             while (placed < mines) {
@@ -2645,7 +2644,7 @@ function onTileClick(index) {
     else {
         tile.classList.add("revealed-gem");
         if(dom.audioKaching) {
-             const clone = dom.audioKaching.cloneNode(); 
+             const clone = dom.audioKaching.cloneNode(); // Clone żeby dźwięki mogły nakładać się szybko
              clone.volume = 0.5;
              clone.play().catch(()=>{});
         }
@@ -2663,11 +2662,23 @@ function onTileClick(index) {
 }
 
 function calculateMinesMultiplier() {
-    const tilesLeft = 25 - (minesRevealedCount - 1); 
+    // Prosta matematyka prawdopodobieństwa
+    // Mnożnik = Poprzedni * (Pozostałe pola / Pozostałe bezpieczne) * (1 - HouseEdge)
+    // Użyjemy uproszczonej wersji bez House Edge dla zabawy, albo lekkie 1%
+    
+    // Klasyczny wzór kasynowy dla Mines:
+    // nCr(25, mines) / nCr(25 - revealed, mines)
+    
+    // Podejście iteracyjne (łatwiejsze):
+    // Szansa na diament w tym ruchu = (SafeLeft / TilesLeft)
+    // Multiplier tego ruchu = 1 / Szansa
+    // Total Multiplier = M1 * M2 * ...
+    
+    const tilesLeft = 25 - (minesRevealedCount - 1); // Przed tym ruchem
     const safeLeft = (25 - minesCount) - (minesRevealedCount - 1);
     
     const moveMultiplier = tilesLeft / safeLeft;
-    // House Edge (3%)
+    // Apply 3% House Edge per move to keep economy kinda sane
     minesCurrentMultiplier *= (moveMultiplier * 0.97); 
 }
 
@@ -2684,7 +2695,7 @@ function updateMinesInfo() {
     if (minesGameActive) {
         if (minesRevealedCount === 0) {
              btn.textContent = "WYPŁAĆ (Zwrot)";
-             btn.disabled = true; 
+             btn.disabled = true; // Nie można wypłacić przed pierwszym ruchem
         } else {
              btn.textContent = `WYPŁAĆ (${formatujWalute(currentWin)})`;
              btn.disabled = false;
@@ -2707,6 +2718,7 @@ async function endMinesGame(win) {
         const winAmount = minesBetAmount * minesCurrentMultiplier;
         const profit = winAmount - minesBetAmount;
 
+        // Add win to DB
         try {
             await runTransaction(db, async (t) => {
                 const userRef = doc(db, "uzytkownicy", currentUserId);
@@ -2722,6 +2734,7 @@ async function endMinesGame(win) {
             showNotification(`Mines: Wygrana ${formatujWalute(winAmount)}`, 'news', 'positive');
             if(dom.audioKaching) dom.audioKaching.play().catch(()=>{});
             
+            // Odkryj pozostałe miny (jako "dimmed" - przygaszone)
             revealAllMines(true); 
 
         } catch(e) {
@@ -2735,10 +2748,11 @@ async function endMinesGame(win) {
         btn.style.background = "var(--red)";
     }
 
+    // Reset UI po chwili
     setTimeout(() => {
         btn.textContent = "GRAJ";
         btn.classList.remove("cashout-mode");
-        btn.style.background = ""; 
+        btn.style.background = ""; // Reset gradientu
         btn.disabled = false;
         amountInput.disabled = false;
         countSelect.disabled = false;
@@ -2752,7 +2766,7 @@ function revealAllMines(dimmed = false) {
             t.classList.add("revealed-bomb");
             if (dimmed) t.classList.add("dimmed");
         } else if (!t.classList.contains("revealed-gem")) {
-            t.classList.add("dimmed"); 
+            t.classList.add("dimmed"); // Przygaś nieodkryte diamenty
         }
     });
 }
