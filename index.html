@@ -440,15 +440,21 @@
                                 <div id="plinko-multipliers" class="plinko-multipliers-row"></div>
                             </div>
                             <div class="plinko-controls">
-                                <div class="plinko-stats">
-                                    <span>Stawka:</span>
-                                    <input type="number" id="plinko-amount" class="dark-input" placeholder="Kwota" value="100">
-                                </div>
-                                <div class="plinko-settings">
-                                    <label>Ryzyko: <span style="color:var(--accent-color)">Wysokie (16 linii)</span></label>
-                                </div>
-                                <button id="btn-plinko-drop" class="btn-accent btn-full-width mt-10">PUŚĆ KULKĘ</button>
-                            </div>
+    <div class="plinko-stats">
+        <span>Stawka:</span>
+        <input type="number" id="plinko-amount" class="dark-input" placeholder="Kwota" value="100">
+    </div>
+    
+    <div class="plinko-settings" style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
+        <label>Ryzyko:</label>
+        <select id="plinko-risk-select" class="dark-input" style="width: 150px;">
+            <option value="low">Niskie</option>
+            <option value="medium">Średnie</option>
+            <option value="high" selected>Wysokie</option>
+        </select>
+    </div>
+    <button id="btn-plinko-drop" class="btn-accent btn-full-width mt-10">PUŚĆ KULKĘ</button>
+</div>
                             <div class="crash-history-bar" style="margin-top: 10px;">
                                 <span>Ostatnie:</span>
                                 <div id="plinko-history-list" class="crash-history-items"></div>
