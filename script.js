@@ -3028,22 +3028,29 @@ async function endBlackjack(result) {
     }
 }
 // ==========================================
-// === SLOTS GAME LOGIC (Jednoręki Bandyta) ===
+// === SLOTS GAME LOGIC (3x3 z Liniami) ===
 // ==========================================
 
-// Konfiguracja symboli i ich "wagi" (im mniejsza waga, tym rzadszy symbol)
 const SLOT_SYMBOLS = [
-    { icon: '🍒', weight: 50, pay: 10 }, // Wiśnia (Najczęstsza)
-    { icon: '🍋', weight: 40, pay: 5 },  // Cytryna (Uwaga: w paytable dałem x5, tu poprawiłem logikę)
-    { icon: '🍇', weight: 30, pay: 20 }, // Winogrono
-    { icon: '🎰', weight: 15, pay: 20 }, // BAR
-    { icon: '💎', weight: 8,  pay: 50 }, // Diament
-    { icon: '7️⃣', weight: 2,  pay: 100 } // Siedem (Jackpot)
+    { icon: '🍒', weight: 50, pay: 10 }, 
+    { icon: '🍋', weight: 40, pay: 5 },  
+    { icon: '🍇', weight: 30, pay: 15 }, 
+    { icon: '🎰', weight: 15, pay: 20 }, 
+    { icon: '💎', weight: 8,  pay: 50 }, 
+    { icon: '7️⃣', weight: 3,  pay: 100 } 
 ];
 
-// Całkowita waga (do losowania)
-const TOTAL_WEIGHT = SLOT_SYMBOLS.reduce((sum, s) => sum + s.weight, 0);
+// Definicja 5 linii wygrywających (współrzędne: [kolumna, rząd])
+// Kolumny: 0, 1, 2. Rzędy: 0 (góra), 1 (środek), 2 (dół).
+const PAYLINES = [
+    { id: 'top',   coords: [[0,0], [1,0], [2,0]], color: 'red' },      // Góra
+    { id: 'mid',   coords: [[0,1], [1,1], [2,1]], color: 'gold' },     // Środek
+    { id: 'bot',   coords: [[0,2], [1,2], [2,2]], color: 'red' },      // Dół
+    { id: 'cross1',coords: [[0,0], [1,1], [2,2]], color: '#00d2ff' },  // Skos: Lewa góra -> Prawy dół
+    { id: 'cross2',coords: [[0,2], [1,1], [2,0]], color: '#00d2ff' }   // Skos: Lewy dół -> Prawa góra
+];
 
+const TOTAL_WEIGHT = SLOT_SYMBOLS.reduce((sum, s) => sum + s.weight, 0);
 let slotsSpinning = false;
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -3051,19 +3058,15 @@ document.addEventListener("DOMContentLoaded", () => {
     if(btnSlots) btnSlots.addEventListener("click", onSlotsSpin);
 });
 
-// Funkcja losująca symbol z uwzględnieniem rzadkości
 function getRandomSlotSymbol() {
     let random = Math.random() * TOTAL_WEIGHT;
     for (let symbol of SLOT_SYMBOLS) {
-        if (random < symbol.weight) {
-            return symbol.icon;
-        }
+        if (random < symbol.weight) return symbol.icon;
         random -= symbol.weight;
     }
-    return SLOT_SYMBOLS[0].icon; // Fallback
+    return SLOT_SYMBOLS[0].icon;
 }
 
-// Funkcja pomocnicza do pobrania mnożnika dla symbolu
 function getSymbolMultiplier(icon) {
     const sym = SLOT_SYMBOLS.find(s => s.icon === icon);
     return sym ? sym.pay : 0;
@@ -3076,20 +3079,23 @@ async function onSlotsSpin() {
     const amount = parseInt(amountInput.value);
     const statusEl = document.getElementById("slots-status");
     const windowEl = document.querySelector(".slots-window");
+    const svgLayer = document.getElementById("slots-lines-svg");
 
-    // Walidacja
     if (isNaN(amount) || amount <= 0) return showMessage("Podaj stawkę!", "error");
     if (!currentUserId) return showMessage("Zaloguj się!", "error");
     if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
 
     slotsSpinning = true;
-    statusEl.textContent = "KRĘCIMY...";
+    statusEl.textContent = "KRĘCIMY (3x3)...";
     statusEl.style.color = "var(--text-main)";
+    
+    // Reset wizualny
     windowEl.classList.remove("win-animation");
-    document.querySelectorAll(".slot-reel").forEach(r => r.classList.remove("win-symbol"));
+    svgLayer.innerHTML = ""; // Czyść linie
+    document.querySelectorAll(".slot-cell").forEach(c => c.classList.remove("win-anim"));
 
     try {
-        // 1. Pobranie środków (Firebase Transaction)
+        // 1. Transakcja (Pobranie środków)
         await runTransaction(db, async (t) => {
             const userRef = doc(db, "uzytkownicy", currentUserId);
             const userDoc = await t.get(userRef);
@@ -3102,93 +3108,118 @@ async function onSlotsSpin() {
             });
         });
 
-        // Update UI natychmiastowy
         portfolio.cash -= amount;
         updatePortfolioUI();
 
-        // 2. Ustalenie wyniku Z GÓRY (zanim skończy się animacja)
-        // Dzięki temu mamy pewność wyniku, a animacja to tylko "show"
-        const resultReels = [
-            getRandomSlotSymbol(),
-            getRandomSlotSymbol(),
-            getRandomSlotSymbol()
-        ];
-        
-        // Czasem oszukujemy na korzyść gracza? Nie, tutaj czysta matematyka wag :)
-        
-        // 3. Animacja Kręcenia
-        const reels = [
-            document.getElementById("reel-1"),
-            document.getElementById("reel-2"),
-            document.getElementById("reel-3")
+        // 2. Generowanie wyników (3 kolumny po 3 symbole)
+        // resultMatrix[kolumna][rząd]
+        const resultMatrix = [
+            [getRandomSlotSymbol(), getRandomSlotSymbol(), getRandomSlotSymbol()],
+            [getRandomSlotSymbol(), getRandomSlotSymbol(), getRandomSlotSymbol()],
+            [getRandomSlotSymbol(), getRandomSlotSymbol(), getRandomSlotSymbol()]
         ];
 
-        // Dźwięk startu (jeśli masz, opcjonalnie)
+        // 3. Animacja
+        const columns = [
+            document.getElementById("reel-col-0"),
+            document.getElementById("reel-col-1"),
+            document.getElementById("reel-col-2")
+        ];
+
+        // Dźwięk startu
         // if(dom.audioNews) { dom.audioNews.currentTime=0; dom.audioNews.play().catch(()=>{}); }
 
-        // Rozpocznij animację "rozmycia" i szybkiej zmiany znaków
-        const spinIntervals = reels.map((reel) => {
-            reel.classList.add("blur");
+        // Rozpocznij animację "rozmycia"
+        const spinIntervals = columns.map((col, colIndex) => {
+            col.classList.add("blur");
             return setInterval(() => {
-                reel.textContent = getRandomSlotSymbol();
-            }, 50); // Zmieniaj znak co 50ms
+                // Szybka podmiana symboli w trakcie kręcenia
+                col.innerHTML = `
+                    <div class="slot-cell">${getRandomSlotSymbol()}</div>
+                    <div class="slot-cell">${getRandomSlotSymbol()}</div>
+                    <div class="slot-cell">${getRandomSlotSymbol()}</div>
+                `;
+            }, 60);
         });
 
-        // 4. Stopniowe zatrzymywanie bębnów
-        const stopDelays = [1000, 1500, 2000]; // Opóźnienia dla bębna 1, 2 i 3
+        // 4. Zatrzymywanie bębnów po kolei
+        const stopDelays = [1000, 1600, 2200];
 
-        reels.forEach((reel, index) => {
+        columns.forEach((col, colIndex) => {
             setTimeout(() => {
-                clearInterval(spinIntervals[index]); // Zatrzymaj losowanie
-                reel.textContent = resultReels[index]; // Ustaw wynik
-                reel.classList.remove("blur"); // Usuń rozmycie
+                clearInterval(spinIntervals[colIndex]);
+                col.classList.remove("blur");
                 
-                // Efekt "tąpnięcia" przy zatrzymaniu (CSS scale)
-                reel.style.transform = "scale(1.2)";
-                setTimeout(() => reel.style.transform = "scale(1)", 150);
+                // Wstaw finalne symbole dla tej kolumny
+                col.innerHTML = `
+                    <div class="slot-cell" id="cell-${colIndex}-0">${resultMatrix[colIndex][0]}</div>
+                    <div class="slot-cell" id="cell-${colIndex}-1">${resultMatrix[colIndex][1]}</div>
+                    <div class="slot-cell" id="cell-${colIndex}-2">${resultMatrix[colIndex][2]}</div>
+                `;
                 
-            }, stopDelays[index]);
+                // Efekt tąpnięcia
+                col.style.transform = "translateY(5px)";
+                setTimeout(() => col.style.transform = "translateY(0)", 150);
+
+            }, stopDelays[colIndex]);
         });
 
-        // 5. Sprawdzenie wygranej po zatrzymaniu ostatniego bębna
+        // 5. Sprawdzenie wygranych (po zatrzymaniu wszystkich)
         setTimeout(async () => {
-            const r1 = resultReels[0];
-            const r2 = resultReels[1];
-            const r3 = resultReels[2];
+            let totalWin = 0;
+            let winningLines = [];
 
-            let winAmount = 0;
-            let profit = -amount;
-            let isWin = false;
+            // Sprawdzamy każdą z 5 linii
+            PAYLINES.forEach(line => {
+                const [c1, r1] = line.coords[0];
+                const [c2, r2] = line.coords[1];
+                const [c3, r3] = line.coords[2];
 
-            // Logika wygranej: 3 takie same
-            if (r1 === r2 && r2 === r3) {
-                isWin = true;
-                const multiplier = getSymbolMultiplier(r1);
-                winAmount = amount * multiplier;
-                profit = winAmount - amount;
-            }
+                const sym1 = resultMatrix[c1][r1];
+                const sym2 = resultMatrix[c2][r2];
+                const sym3 = resultMatrix[c3][r3];
 
-            if (isWin) {
-                statusEl.innerHTML = `JACKPOT! <span style="color:#ffd700">+${formatujWalute(winAmount)}</span>`;
-                windowEl.classList.add("win-animation");
-                reels.forEach(r => r.classList.add("win-symbol"));
+                // Warunek wygranej: Wszystkie 3 takie same
+                if (sym1 === sym2 && sym2 === sym3) {
+                    const multiplier = getSymbolMultiplier(sym1);
+                    const lineWin = amount * multiplier; // Możesz tu podzielić amount przez 5 jeśli chcesz by stawka była "na linię"
+                    
+                    totalWin += lineWin;
+                    winningLines.push({ line, symbol: sym1 });
+                }
+            });
+
+            // Rozliczenie
+            if (totalWin > 0) {
+                const profit = totalWin - amount;
                 
+                // Rysowanie linii
+                drawWinningLines(winningLines, svgLayer);
+
+                // Animacja symboli
+                winningLines.forEach(win => {
+                    win.line.coords.forEach(([c, r]) => {
+                        const cell = document.getElementById(`cell-${c}-${r}`);
+                        if(cell) cell.classList.add("win-anim");
+                    });
+                });
+
+                statusEl.innerHTML = `WYGRANA! <span style="color:#ffd700">+${formatujWalute(totalWin)}</span>`;
+                windowEl.classList.add("win-animation");
                 if(dom.audioKaching) { dom.audioKaching.currentTime=0; dom.audioKaching.play().catch(()=>{}); }
 
-                // Zapis wygranej do bazy
+                // Zapis do bazy
                 try {
                     await runTransaction(db, async (t) => {
                         const userRef = doc(db, "uzytkownicy", currentUserId);
                         const d = (await t.get(userRef)).data();
-                        const newCash = d.cash + winAmount;
-                        const newZysk = (d.zysk || 0) + profit;
                         t.update(userRef, { 
-                            cash: newCash, 
-                            zysk: newZysk, 
-                            totalValue: calculateTotalValue(newCash, d.shares) 
+                            cash: d.cash + totalWin, 
+                            zysk: (d.zysk || 0) + profit, 
+                            totalValue: calculateTotalValue(d.cash + totalWin, d.shares) 
                         });
                     });
-                    showNotification(`Sloty: Wygrana ${formatujWalute(winAmount)}!`, 'news', 'positive');
+                    showNotification(`Sloty: Wygrana ${formatujWalute(totalWin)}!`, 'news', 'positive');
                 } catch(e) { console.error(e); }
 
             } else {
@@ -3198,13 +3229,44 @@ async function onSlotsSpin() {
 
             slotsSpinning = false;
 
-        }, 2100); // Nieco po zatrzymaniu ostatniego bębna
+        }, 2400); 
 
     } catch (e) {
         slotsSpinning = false;
         statusEl.textContent = "BŁĄD SIECI";
         showMessage(e.message, "error");
     }
+}
+
+// Funkcja rysująca linie SVG
+function drawWinningLines(winners, svgContainer) {
+    const containerRect = document.querySelector('.slots-window').getBoundingClientRect();
+    
+    // Obliczamy środki komórek
+    // Zakładamy, że kolumny są równe (33%) i rzędy są równe (33%)
+    const cellW = containerRect.width / 3;
+    const cellH = containerRect.height / 3;
+
+    winners.forEach(win => {
+        const coords = win.line.coords;
+        let pathStr = "M "; // Move to
+
+        coords.forEach(([col, row], index) => {
+            // Środek komórki
+            const x = (col * cellW) + (cellW / 2);
+            const y = (row * cellH) + (cellH / 2);
+            
+            pathStr += `${x} ${y}`;
+            if (index < coords.length - 1) pathStr += " L "; // Line to
+        });
+
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", pathStr);
+        path.setAttribute("class", "winning-line");
+        path.style.stroke = win.line.color;
+        
+        svgContainer.appendChild(path);
+    });
 }
 // ==========================================
 // === DICE (KOŚCI) LOGIC ===
