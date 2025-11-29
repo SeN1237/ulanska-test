@@ -267,7 +267,8 @@
         <button class="game-nav-btn" data-game-tab="poker"><i class="fa-solid fa-diamond"></i> Poker</button>
         <button class="game-nav-btn" data-game-tab="radio"><i class="fa-solid fa-music"></i> Radio</button>
         <button class="game-nav-btn" data-game-tab="mines"><i class="fa-solid fa-bomb"></i> Mines</button>
-        <button class="game-nav-btn" data-game-tab="blackjack"><i class="fa-solid fa-playing-card"></i> Blackjack</button>
+        <button class="game-nav-btn" data-game-tab="blackjack"><i class="fa-solid fa-cards"></i> Blackjack</button>
+        <button class="game-nav-btn" data-game-tab="slots"><i class="fa-solid fa-gem"></i> Sloty</button>
     </div>
 
     <div class="games-content-container">
@@ -596,6 +597,54 @@
         </div>
     </section>
 </div>
+    
+<div id="tab-game-slots" class="game-tab-content">
+    <section id="slots-panel" class="glass-panel center-content">
+        <div class="panel-head">
+            <h2><i class="fa-solid fa-gem"></i> Neon Slots 777</h2>
+        </div>
+
+        <div class="slots-machine-container">
+            <div class="slots-paytable">
+                <div class="pay-item p-777"><span>7️⃣7️⃣7️⃣</span> <strong>x100</strong></div>
+                <div class="pay-item p-diamond"><span>💎💎💎</span> <strong>x50</strong></div>
+                <div class="pay-item p-bar"><span>🎰🎰🎰</span> <strong>x20</strong></div>
+                <div class="pay-item p-cherry"><span>🍒🍒🍒</span> <strong>x10</strong></div>
+                <div class="pay-item p-lemon"><span>🍋🍋🍋</span> <strong>x5</strong></div>
+            </div>
+
+            <div class="slots-window">
+                <div class="reel-container">
+                    <div id="reel-1" class="slot-reel">7️⃣</div>
+                </div>
+                <div class="reel-separator"></div>
+                <div class="reel-container">
+                    <div id="reel-2" class="slot-reel">7️⃣</div>
+                </div>
+                <div class="reel-separator"></div>
+                <div class="reel-container">
+                    <div id="reel-3" class="slot-reel">7️⃣</div>
+                </div>
+                
+                <div class="win-line"></div>
+            </div>
+
+            <div class="slots-controls">
+                <div class="slots-message" id="slots-status">SPIN TO WIN!</div>
+                
+                <div class="input-row" style="max-width: 300px; margin: 15px auto;">
+                    <label>Stawka:</label>
+                    <input type="number" id="slots-amount" class="dark-input" value="100">
+                </div>
+
+                <button id="btn-slots-spin" class="btn-accent btn-full-width spin-button-big">
+                    ZAKRĘĆ (SPIN)
+                </button>
+            </div>
+        </div>
+    </section>
+</div>    
+    
         <div id="view-info" class="view-section">
              <div class="info-grid">
                 <section id="tournament-panel" class="glass-panel highlight-panel">
