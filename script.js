@@ -62,7 +62,8 @@ const GAME_UNLOCKS = {
     // Poziom 0 (Start)
     'betting': 0, 
     'radio': 0,   
-    'pvp': 0,     
+    'pvp': 0,  
+    'race': 0, // Dostępne dla każdego   
 
     // Poziom 1 (⭐️)
     'casino': 1,  
@@ -856,6 +857,7 @@ function startAuthListener() {
             listenToLimitOrders(currentUserId);
             listenToActiveBets(currentUserId);
             listenToPvP();
+            listenToRaces(); // <--- DODAJ TO
             listenToActiveMatch();
             
             dom.navButtons[0].click();
@@ -3560,4 +3562,335 @@ async function openCase() {
         showMessage(e.message, "error"); 
         btn.disabled = false;
     }
+}
+// ==========================================
+// === MULTIPLAYER RACE LOGIC (ŚLIMAKI) ===
+// ==========================================
+
+let activeRaceId = null;
+let raceSubscription = null;
+let raceAnimationInterval = null;
+
+document.addEventListener("DOMContentLoaded", () => {
+    const btnCreate = document.getElementById("btn-race-create");
+    const btnLeave = document.getElementById("btn-race-leave");
+    const btnStart = document.getElementById("btn-race-start");
+
+    if (btnCreate) btnCreate.addEventListener("click", createRace);
+    if (btnLeave) btnLeave.addEventListener("click", leaveRaceView);
+    if (btnStart) btnStart.addEventListener("click", startRace);
+});
+
+// 1. Nasłuchiwanie listy wyścigów (Lobby)
+function listenToRaces() {
+    // Nasłuchujemy tylko wyścigów "open" lub "racing" (żeby widzieć też trwające)
+    const q = query(collection(db, "races"), where("status", "in", ["open", "racing"]));
+    
+    onSnapshot(q, (snap) => {
+        const listEl = document.getElementById("race-list");
+        if (!listEl) return;
+        
+        listEl.innerHTML = "";
+        
+        if (snap.empty) {
+            listEl.innerHTML = "<p style='grid-column: 1/-1; text-align:center;'>Brak aktywnych wyścigów.</p>";
+            return;
+        }
+
+        snap.forEach(docSnap => {
+            const r = docSnap.data();
+            const isFull = r.players.length >= 8;
+            const isIngame = r.players.some(p => p.id === currentUserId);
+            const statusText = r.status === 'racing' ? 'W TRAKCIE' : 'OTWARTY';
+            
+            // Jeśli jesteśmy w tym wyścigu, automatycznie przełączamy widok na tor
+            if (isIngame && activeRaceId !== docSnap.id) {
+                enterRaceView(docSnap.id);
+            }
+
+            const div = document.createElement("div");
+            div.className = "race-lobby-card";
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong>${formatujWalute(r.entryFee)}</strong>
+                    <span style="color:${r.status==='racing'?'var(--red)':'var(--green)'}">${statusText}</span>
+                </div>
+                <div style="font-size:0.9em; color:#ccc;">Host: ${r.hostName}</div>
+                <div style="font-size:0.9em;">Graczy: ${r.players.length} / 8</div>
+                <button class="btn-accent" style="margin-top:5px;" 
+                    onclick="joinRace('${docSnap.id}', ${r.entryFee})" 
+                    ${(isFull || r.status !== 'open') ? 'disabled' : ''}>
+                    ${r.status === 'racing' ? 'TRWA...' : (isFull ? 'PEŁNY' : 'DOŁĄCZ')}
+                </button>
+            `;
+            listEl.appendChild(div);
+        });
+    });
+}
+
+// 2. Tworzenie wyścigu
+async function createRace() {
+    const input = document.getElementById("race-create-amount");
+    const amount = parseFloat(input.value);
+
+    if (isNaN(amount) || amount < 100) return showMessage("Min. 100 zł!", "error");
+    if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
+
+    try {
+        await runTransaction(db, async (t) => {
+            const uRef = doc(db, "uzytkownicy", currentUserId);
+            const d = (await t.get(uRef)).data();
+            if (d.cash < amount) throw new Error("Brak środków!");
+            
+            t.update(uRef, { cash: d.cash - amount, totalValue: calculateTotalValue(d.cash - amount, d.shares) });
+            
+            const raceRef = doc(collection(db, "races"));
+            t.set(raceRef, {
+                hostId: currentUserId,
+                hostName: portfolio.name,
+                entryFee: amount,
+                status: "open", // open, racing, finished
+                createdAt: serverTimestamp(),
+                players: [{
+                    id: currentUserId,
+                    name: portfolio.name,
+                    avatar: '🐌', // Domyślny, można losować
+                    color: getRandomColor()
+                }],
+                winnerIndex: -1
+            });
+        });
+        showMessage("Pokój utworzony!", "success");
+    } catch (e) {
+        showMessage(e.message, "error");
+    }
+}
+
+// 3. Dołączanie do wyścigu
+window.joinRace = async function(raceId, fee) {
+    if (portfolio.cash < fee) return showMessage("Nie stać Cię!", "error");
+    if (!confirm(`Dołączyć za ${formatujWalute(fee)}?`)) return;
+
+    try {
+        await runTransaction(db, async (t) => {
+            const raceRef = doc(db, "races", raceId);
+            const uRef = doc(db, "uzytkownicy", currentUserId);
+            
+            const rDoc = await t.get(raceRef);
+            const uDoc = await t.get(uRef);
+            
+            if (!rDoc.exists()) throw new Error("Wyścig nie istnieje.");
+            const rData = rDoc.data();
+            
+            if (rData.status !== 'open') throw new Error("Wyścig już ruszył!");
+            if (rData.players.length >= 8) throw new Error("Pokój pełny!");
+            if (rData.players.some(p => p.id === currentUserId)) throw new Error("Już tu jesteś!");
+            if (uDoc.data().cash < fee) throw new Error("Brak siana!");
+
+            // Pobranie opłaty
+            const newCash = uDoc.data().cash - fee;
+            t.update(uRef, { cash: newCash, totalValue: calculateTotalValue(newCash, uDoc.data().shares) });
+
+            // Dodanie gracza
+            const newPlayers = [...rData.players, {
+                id: currentUserId,
+                name: portfolio.name,
+                avatar: '🐌',
+                color: getRandomColor()
+            }];
+            
+            t.update(raceRef, { players: newPlayers });
+        });
+    } catch (e) {
+        showMessage(e.message, "error");
+    }
+};
+
+// 4. Wejście do widoku toru (Lobby -> Tor)
+function enterRaceView(raceId) {
+    activeRaceId = raceId;
+    document.getElementById("race-lobby-view").classList.add("hidden");
+    document.getElementById("race-track-view").classList.remove("hidden");
+    
+    // Nasłuchiwanie konkretnego wyścigu
+    if (raceSubscription) raceSubscription();
+    
+    raceSubscription = onSnapshot(doc(db, "races", raceId), (docSnap) => {
+        if (!docSnap.exists()) {
+            leaveRaceView();
+            return;
+        }
+        renderRaceBoard(docSnap.data());
+    });
+}
+
+function leaveRaceView() {
+    activeRaceId = null;
+    if (raceSubscription) raceSubscription();
+    if (raceAnimationInterval) clearInterval(raceAnimationInterval);
+    
+    document.getElementById("race-lobby-view").classList.remove("hidden");
+    document.getElementById("race-track-view").classList.add("hidden");
+}
+
+function getRandomColor() {
+    const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffffff', '#ffa500'];
+    return colors[Math.floor(Math.random() * colors.length)];
+}
+
+// 5. Renderowanie planszy i animacja
+function renderRaceBoard(data) {
+    const container = document.getElementById("race-tracks-container");
+    const potDisplay = document.getElementById("race-pot-display");
+    const btnStart = document.getElementById("btn-race-start");
+    const statusMsg = document.getElementById("race-status-message");
+
+    const totalPot = data.entryFee * data.players.length;
+    potDisplay.textContent = formatujWalute(totalPot);
+
+    // Host widzi przycisk Start
+    if (data.hostId === currentUserId && data.status === 'open' && data.players.length > 1) {
+        btnStart.classList.remove("hidden");
+    } else {
+        btnStart.classList.add("hidden");
+    }
+
+    // Jeśli status open, tylko wyświetlamy listę. Jeśli racing - animujemy.
+    if (data.status === 'open') {
+        statusMsg.textContent = `Oczekiwanie na graczy... (${data.players.length}/8)`;
+        container.innerHTML = "";
+        data.players.forEach((p, idx) => {
+            container.innerHTML += `
+                <div class="race-lane">
+                    <div class="snail-name" style="left: 0%">${p.name}</div>
+                    <div class="race-snail" style="left: 0%; color: ${p.color}">${p.avatar}</div>
+                </div>
+            `;
+        });
+    } else if (data.status === 'racing' || data.status === 'finished') {
+        statusMsg.textContent = data.status === 'racing' ? "JADĄĄĄĄ!!!!" : `WYGRAŁ: ${data.players[data.winnerIndex].name}`;
+        
+        // Jeśli animacja jeszcze nie ruszyła, zacznij
+        if (!raceAnimationInterval && data.status === 'racing') {
+            runClientSideRaceAnimation(data.players, data.winnerIndex);
+        } else if (data.status === 'finished') {
+             // Pokaż wynik końcowy statycznie (dla tych co weszli po fakcie)
+             container.innerHTML = "";
+             data.players.forEach((p, idx) => {
+                 const isWinner = idx === data.winnerIndex;
+                 container.innerHTML += `
+                    <div class="race-lane" style="background: ${isWinner ? 'rgba(0,255,0,0.1)' : 'transparent'}">
+                        <div class="snail-name" style="left: ${isWinner ? '90%' : (Math.random()*80)+'%'}">${p.name}</div>
+                        <div class="race-snail ${isWinner ? 'winner' : ''}" style="left: ${isWinner ? '90%' : (Math.random()*80)+'% '}; color: ${p.color}">${p.avatar}</div>
+                    </div>
+                `;
+             });
+        }
+    }
+}
+
+// 6. Start wyścigu (Logika Hosta)
+async function startRace() {
+    if (!activeRaceId) return;
+    
+    try {
+        await runTransaction(db, async (t) => {
+            const raceRef = doc(db, "races", activeRaceId);
+            const rDoc = await t.get(raceRef);
+            const data = rDoc.data();
+            
+            if (data.status !== 'open') throw new Error("Już ruszyło!");
+            
+            // Losujemy zwycięzcę (indeks w tablicy players)
+            const winnerIndex = Math.floor(Math.random() * data.players.length);
+            const winnerId = data.players[winnerIndex].id;
+            const totalPot = data.entryFee * data.players.length;
+            
+            // Wypłata OD RAZU (bezpieczeństwo)
+            const winnerRef = doc(db, "uzytkownicy", winnerId);
+            const wDoc = await t.get(winnerRef);
+            const wData = wDoc.data();
+            
+            const newCash = wData.cash + totalPot;
+            const newProfit = (wData.zysk || 0) + (totalPot - data.entryFee); // Zysk netto
+            
+            t.update(winnerRef, { 
+                cash: newCash, 
+                zysk: newProfit, 
+                totalValue: calculateTotalValue(newCash, wData.shares)
+            });
+            
+            // Zapisujemy w wyścigu kto wygrał i zmieniamy status
+            t.update(raceRef, { 
+                status: 'racing', 
+                winnerIndex: winnerIndex 
+            });
+        });
+    } catch(e) {
+        showMessage(e.message, "error");
+    }
+}
+
+// 7. Animacja kliencka (tylko wizualna)
+function runClientSideRaceAnimation(players, winnerIndex) {
+    const container = document.getElementById("race-tracks-container");
+    const positions = new Array(players.length).fill(0);
+    const speeds = players.map(() => Math.random() * 0.5 + 0.2);
+    
+    // Budujemy DOM
+    container.innerHTML = "";
+    const snailEls = [];
+    players.forEach((p, idx) => {
+        const lane = document.createElement("div");
+        lane.className = "race-lane";
+        lane.innerHTML = `
+             <div class="snail-name" id="name-${idx}">${p.name}</div>
+             <div class="race-snail" id="snail-${idx}" style="color: ${p.color}">${p.avatar}</div>
+        `;
+        container.appendChild(lane);
+        snailEls.push({
+            el: lane.querySelector(".race-snail"),
+            nameEl: lane.querySelector(".snail-name")
+        });
+    });
+
+    let finished = false;
+
+    raceAnimationInterval = setInterval(() => {
+        if (!activeRaceId) { clearInterval(raceAnimationInterval); return; }
+        
+        for (let i = 0; i < players.length; i++) {
+            // Zwycięzca ma boosta, reszta losowo
+            let move = Math.random() * 0.8;
+            if (i === winnerIndex) move += 0.15; // Lekka przewaga, żeby wygrał
+            
+            positions[i] += move;
+            
+            // Cap na 90% (meta)
+            if (positions[i] > 90) positions[i] = 90;
+            
+            snailEls[i].el.style.left = positions[i] + "%";
+            snailEls[i].nameEl.style.left = positions[i] + "%";
+            
+            // Sprawdzenie końca animacji
+            if (i === winnerIndex && positions[i] >= 90) {
+                finished = true;
+            }
+        }
+        
+        if (finished) {
+            clearInterval(raceAnimationInterval);
+            raceAnimationInterval = null;
+            // Oznaczamy w bazie że koniec animacji (opcjonalne, tutaj po prostu kończymy lokalnie)
+            // Można dodać klasę winner
+            snailEls[winnerIndex].el.classList.add("winner");
+            
+            // Po 3 sekundach zmieniamy status w bazie na 'finished' żeby wyczyścić pokój (Host to robi)
+            if (players[winnerIndex].id === currentUserId || players[0].id === currentUserId) {
+                 setTimeout(() => {
+                    updateDoc(doc(db, "races", activeRaceId), { status: 'finished' }).catch(()=>{});
+                 }, 4000);
+            }
+        }
+    }, 50); // 50ms klatka
 }
