@@ -293,21 +293,32 @@ async function onResetPassword(e) {
     try { await sendPasswordResetEmail(auth, email); showAuthMessage("Wysłano link", "success"); } catch(err) { showAuthMessage(err.message, "error"); }
 }
 
-// --- FUNKCJA NAWIGACJI ---
 function onSelectView(e) {
     const viewName = e.currentTarget.dataset.view;
     dom.navButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.view === viewName));
+    
     dom.views.forEach(view => {
         if (view.id === `view-${viewName}`) {
-            view.classList.add("active");
             view.classList.remove("hidden");
+            // Małe opóźnienie dla animacji wejścia
+            setTimeout(() => view.classList.add("active"), 10);
         } else {
             view.classList.remove("active");
-            setTimeout(() => { if(!view.classList.contains('active')) view.classList.add('hidden') }, 500);
+            // Czekamy na koniec animacji wyjścia, potem ukrywamy całkowicie
+            setTimeout(() => { 
+                if(!view.classList.contains('active')) {
+                    view.classList.add('hidden');
+                }
+            }, 500);
         }
     });
-    if (viewName === 'market' && chart) {
-        chart.render();
+
+    // --- FIX: WYMUSZONE CZYSZCZENIE GIER ---
+    // Jeśli wychodzimy z zakładki "entertainment", upewnij się, że gry nie wiszą
+    if (viewName !== 'entertainment') {
+        // Opcjonalnie: Zatrzymaj aktywne pętle (np. crash)
+        // crashIsRunning = false; 
+        // Ale najważniejsze: upewnij się, że style CSS nie "wyciekają"
     }
 }
 
@@ -3177,5 +3188,298 @@ async function onSlotsSpin() {
         slotsSpinning = false;
         statusEl.textContent = "BŁĄD SIECI";
         showMessage(e.message, "error");
+    }
+}
+// ==========================================
+// === DICE (KOŚCI) LOGIC ===
+// ==========================================
+document.addEventListener("DOMContentLoaded", () => {
+    const slider = document.getElementById("dice-slider");
+    const btn = document.getElementById("btn-dice-roll");
+    if(slider) {
+        slider.addEventListener("input", updateDiceStats);
+        updateDiceStats(); // init
+    }
+    if(btn) btn.addEventListener("click", onDiceRoll);
+});
+
+function updateDiceStats() {
+    const val = parseInt(document.getElementById("dice-slider").value);
+    const chance = val; // Roll under X
+    const multiplier = (98 / chance).toFixed(2); // 2% house edge
+    
+    document.getElementById("dice-chance").textContent = chance + "%";
+    document.getElementById("dice-multiplier").textContent = multiplier + "x";
+    document.getElementById("btn-dice-roll").textContent = `RZUĆ PONIŻEJ ${val}`;
+}
+
+async function onDiceRoll() {
+    const amount = parseFloat(document.getElementById("dice-amount").value);
+    const target = parseInt(document.getElementById("dice-slider").value);
+    const resultEl = document.getElementById("dice-result-val");
+
+    if(isNaN(amount) || amount <= 0) return showMessage("Podaj stawkę!", "error");
+    if(amount > portfolio.cash) return showMessage("Brak środków!", "error");
+
+    try {
+        await runTransaction(db, async (t) => {
+             const userRef = doc(db, "uzytkownicy", currentUserId);
+             const d = (await t.get(userRef)).data();
+             if(d.cash < amount) throw new Error("Brak środków");
+             t.update(userRef, { cash: d.cash - amount, totalValue: calculateTotalValue(d.cash - amount, d.shares) });
+        });
+        
+        portfolio.cash -= amount;
+        updatePortfolioUI();
+
+        // Animacja
+        let rolls = 0;
+        const interval = setInterval(() => {
+            resultEl.textContent = (Math.random() * 100).toFixed(2);
+            rolls++;
+            if(rolls > 10) {
+                clearInterval(interval);
+                finalizeDice(amount, target);
+            }
+        }, 50);
+
+    } catch(e) { showMessage(e.message, "error"); }
+}
+
+async function finalizeDice(bet, target) {
+    const roll = Math.random() * 100;
+    const resultEl = document.getElementById("dice-result-val");
+    resultEl.textContent = roll.toFixed(2);
+
+    if (roll < target) {
+        resultEl.style.color = "var(--green)";
+        const mult = 98 / target;
+        const win = bet * mult;
+        const profit = win - bet;
+
+        await runTransaction(db, async (t) => {
+            const userRef = doc(db, "uzytkownicy", currentUserId);
+            const d = (await t.get(userRef)).data();
+            t.update(userRef, { cash: d.cash + win, zysk: (d.zysk||0)+profit, totalValue: calculateTotalValue(d.cash+win, d.shares) });
+        });
+        if(dom.audioKaching) dom.audioKaching.play().catch(()=>{});
+        showNotification(`Dice: Wygrana ${formatujWalute(win)}`, 'news', 'positive');
+    } else {
+        resultEl.style.color = "var(--red)";
+        if(dom.audioError) dom.audioError.play().catch(()=>{});
+    }
+}
+
+// ==========================================
+// === KENO LOGIC ===
+// ==========================================
+let kenoPicks = [];
+const KENO_PAYTABLE = {
+    1: {1: 3},
+    2: {2: 12},
+    3: {2: 1, 3: 40},
+    4: {3: 5, 4: 100},
+    5: {3: 3, 4: 20, 5: 400},
+    6: {3: 2, 4: 10, 5: 80, 6: 1000},
+    7: {4: 5, 5: 30, 6: 200, 7: 3000},
+    8: {4: 4, 5: 20, 6: 100, 7: 1500, 8: 8000},
+    9: {4: 3, 5: 10, 6: 50, 7: 300, 8: 3000, 9: 10000},
+    10: {5: 5, 6: 30, 7: 150, 8: 1000, 9: 5000, 10: 20000}
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+    const board = document.getElementById("keno-board");
+    if(board) {
+        for(let i=1; i<=40; i++) {
+            const btn = document.createElement("button");
+            btn.className = "keno-btn";
+            btn.textContent = i;
+            btn.onclick = () => toggleKenoPick(i, btn);
+            board.appendChild(btn);
+        }
+    }
+    const btnPlay = document.getElementById("btn-keno-play");
+    if(btnPlay) btnPlay.addEventListener("click", playKeno);
+    document.getElementById("btn-keno-clear")?.addEventListener("click", () => {
+        kenoPicks = [];
+        document.querySelectorAll(".keno-btn").forEach(b => { b.className = "keno-btn"; });
+        updateKenoPaytable();
+    });
+});
+
+function toggleKenoPick(num, btn) {
+    if(kenoPicks.includes(num)) {
+        kenoPicks = kenoPicks.filter(n => n !== num);
+        btn.classList.remove("selected");
+    } else {
+        if(kenoPicks.length >= 10) return;
+        kenoPicks.push(num);
+        btn.classList.add("selected");
+    }
+    updateKenoPaytable();
+}
+
+function updateKenoPaytable() {
+    const pt = document.getElementById("keno-paytable");
+    pt.innerHTML = `<strong>Wypłaty (${kenoPicks.length} liczb):</strong>`;
+    const rates = KENO_PAYTABLE[kenoPicks.length] || {};
+    for(const [hits, mult] of Object.entries(rates)) {
+        const div = document.createElement("div");
+        div.className = "kp-row";
+        div.id = `kp-hit-${hits}`;
+        div.innerHTML = `<span>Traf ${hits}</span> <span>${mult}x</span>`;
+        pt.appendChild(div);
+    }
+}
+
+async function playKeno() {
+    const amount = parseFloat(document.getElementById("keno-amount").value);
+    if(kenoPicks.length === 0) return showMessage("Wybierz liczby!", "error");
+    if(amount > portfolio.cash) return showMessage("Brak siana!", "error");
+
+    // Reset wizualny
+    document.querySelectorAll(".keno-btn").forEach(b => {
+        b.classList.remove("hit", "miss");
+        if(kenoPicks.includes(parseInt(b.textContent))) b.classList.add("selected");
+    });
+
+    try {
+        await runTransaction(db, async (t) => {
+             const u = doc(db, "uzytkownicy", currentUserId);
+             const d = (await t.get(u)).data();
+             if(d.cash < amount) throw new Error("Brak środków");
+             t.update(u, { cash: d.cash - amount, totalValue: calculateTotalValue(d.cash - amount, d.shares) });
+        });
+        portfolio.cash -= amount;
+        updatePortfolioUI();
+
+        // Losowanie
+        const drawn = [];
+        while(drawn.length < 10) {
+            const r = Math.floor(Math.random() * 40) + 1;
+            if(!drawn.includes(r)) drawn.push(r);
+        }
+
+        // Wynik
+        let hits = 0;
+        drawn.forEach(num => {
+            const btn = [...document.querySelectorAll(".keno-btn")].find(b => b.textContent == num);
+            if(kenoPicks.includes(num)) {
+                hits++;
+                setTimeout(() => btn.classList.add("hit"), 500); // Animacja
+            } else {
+                setTimeout(() => btn.classList.add("miss"), 500);
+            }
+        });
+
+        setTimeout(async () => {
+            const rates = KENO_PAYTABLE[kenoPicks.length] || {};
+            const mult = rates[hits] || 0;
+            
+            if(mult > 0) {
+                const win = amount * mult;
+                await runTransaction(db, async (t) => {
+                    const u = doc(db, "uzytkownicy", currentUserId);
+                    const d = (await t.get(u)).data();
+                    t.update(u, { cash: d.cash + win, zysk: (d.zysk||0)+(win-amount), totalValue: calculateTotalValue(d.cash+win, d.shares) });
+                });
+                if(dom.audioKaching) dom.audioKaching.play().catch(()=>{});
+                showNotification(`Keno: Trafiono ${hits}! Wygrana: ${formatujWalute(win)}`, 'news', 'positive');
+            } else {
+                if(dom.audioError) dom.audioError.play().catch(()=>{});
+            }
+        }, 1000);
+
+    } catch(e) { showMessage(e.message, "error"); }
+}
+
+// ==========================================
+// === CASE OPENING LOGIC ===
+// ==========================================
+document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("btn-case-open")?.addEventListener("click", openCase);
+});
+
+async function openCase() {
+    const cost = parseInt(document.getElementById("case-type-select").value);
+    if(cost > portfolio.cash) return showMessage("Nie stać Cię!", "error");
+
+    const btn = document.getElementById("btn-case-open");
+    const strip = document.getElementById("case-strip");
+    const label = document.getElementById("case-win-label");
+    
+    btn.disabled = true;
+    label.textContent = "Losowanie...";
+
+    try {
+        await runTransaction(db, async (t) => {
+             const u = doc(db, "uzytkownicy", currentUserId);
+             const d = (await t.get(u)).data();
+             if(d.cash < cost) throw new Error("Brak środków");
+             t.update(u, { cash: d.cash - cost, totalValue: calculateTotalValue(d.cash - cost, d.shares) });
+        });
+        portfolio.cash -= cost;
+        updatePortfolioUI();
+
+        // Generowanie itemów (Visual)
+        strip.innerHTML = "";
+        strip.style.transition = "none";
+        strip.style.transform = "translateX(0px)";
+
+        const items = [];
+        const winIndex = 30; // Wygrana zawsze na 30. pozycji
+        let finalItem = null;
+
+        // Określenie wygranej (zależnie od skrzynki)
+        // Szansa na profit: 30%
+        const isWin = Math.random() < 0.35; 
+        const winMult = isWin ? (Math.random() * 5 + 1.2) : (Math.random() * 0.8); // 1.2x-6x lub 0.1x-0.8x
+        const winVal = Math.floor(cost * winMult);
+
+        for(let i=0; i<35; i++) {
+            const isTarget = (i === winIndex);
+            let val = isTarget ? winVal : Math.floor(cost * (Math.random() * 2));
+            if(!isTarget && Math.random() > 0.9) val = cost * 5; // Fake rare items passing by
+
+            let rarity = 1;
+            if(val > cost) rarity = 2;
+            if(val > cost * 3) rarity = 3;
+            if(val > cost * 10) rarity = 4;
+
+            const div = document.createElement("div");
+            div.className = `case-item rarity-${rarity}`;
+            div.innerHTML = `<div class="case-img">${rarity===4?'🏆':(rarity===3?'💍':(rarity===2?'💰':'💩'))}</div>${formatujWalute(val)}`;
+            strip.appendChild(div);
+
+            if(isTarget) finalItem = { val, rarity };
+        }
+
+        // Animacja
+        const cardWidth = 104; // 100px width + 4px margin
+        // Przesunięcie: (30 kart * szerokość) - (połowa okna) + (połowa karty) + losowy offset wewnątrz karty
+        const offset = (winIndex * cardWidth) - (300) + (50) + (Math.random() * 40 - 20);
+        
+        setTimeout(() => {
+            strip.style.transition = "transform 4s cubic-bezier(0.15, 0.85, 0.35, 1.0)";
+            strip.style.transform = `translateX(-${offset}px)`;
+        }, 50);
+
+        setTimeout(async () => {
+            if(finalItem.val > 0) {
+                 await runTransaction(db, async (t) => {
+                    const u = doc(db, "uzytkownicy", currentUserId);
+                    const d = (await t.get(u)).data();
+                    t.update(u, { cash: d.cash + finalItem.val, zysk: (d.zysk||0)+(finalItem.val-cost), totalValue: calculateTotalValue(d.cash+finalItem.val, d.shares) });
+                });
+                label.textContent = `Wygrałeś ${formatujWalute(finalItem.val)}!`;
+                label.style.color = finalItem.val > cost ? "var(--green)" : "var(--text-muted)";
+                if(finalItem.val > cost && dom.audioKaching) dom.audioKaching.play().catch(()=>{});
+            }
+            btn.disabled = false;
+        }, 4100);
+
+    } catch(e) { 
+        showMessage(e.message, "error"); 
+        btn.disabled = false;
     }
 }
