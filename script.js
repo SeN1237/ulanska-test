@@ -59,13 +59,29 @@ const PRESTIGE_REQUIREMENTS = [100000, 250000, 500000, 1000000, 1500000]; // 5 p
 const CRYPTO_PRESTIGE_REQUIREMENT = 4; // Krypto od poziomu 4
 
 const GAME_UNLOCKS = {
+    // Poziom 0 (Start)
     'betting': 0, 
     'radio': 0,   
     'pvp': 0,     
+
+    // Poziom 1 (⭐️)
     'casino': 1,  
+    'dice': 1,      // <-- Dodane: Kości
+
+    // Poziom 2 (⭐️⭐️)
     'poker': 2,  
-    'mines': 2,   // <--- Dodano (wymaga 2 poziomu, albo zmień na 0 jak chcesz) 
+    'mines': 2,
+    'keno': 2,      // <-- Dodane: Keno
+
+    // Poziom 3 (⭐️⭐️⭐️)
     'plinko': 3,  
+    'blackjack': 3, // <-- Dodane: Blackjack
+
+    // Poziom 4 (⭐️⭐️⭐️⭐️) - Wcześniej tu było tylko Krypto, teraz dajemy gry
+    'slots': 4,     // <-- Dodane: Sloty (Neon 777)
+    'cases': 4,     // <-- Dodane: Skrzynki
+
+    // Poziom 5 (⭐️⭐️⭐️⭐️⭐️)
     'crash': 5    
 };
 
