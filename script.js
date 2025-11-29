@@ -2065,18 +2065,19 @@ function addCrashHistory(mult) {
     if(dom.crashHistoryList.children.length > 10) dom.crashHistoryList.lastChild.remove();
 }
 // ==========================================
-// === PLINKO GAME LOGIC ===
+// === PLINKO GAME LOGIC (Z AKTUALIZACJĄ RYZYKA) ===
 // ==========================================
 
 const PLINKO_ROWS = 16;
-const PLINKO_MULTIPLIERS = [110, 41, 10, 5, 3, 1.5, 1, 0.5, 0.3, 0.5, 1, 1.5, 3, 5, 10, 41, 110];
-const PLINKO_COLORS = PLINKO_MULTIPLIERS.map(m => {
-    if(m >= 10) return 'pb-ultra';
-    if(m >= 3) return 'pb-high';
-    if(m >= 1) return 'pb-med';
-    return 'pb-low';
-});
 
+// Definicja mnożników dla 16 rzędów
+const PLINKO_RISK_MAP = {
+    low:    [16, 9, 2, 1.4, 1.4, 1.2, 1.1, 1, 0.5, 1, 1.1, 1.2, 1.4, 1.4, 2, 9, 16],
+    medium: [110, 18, 1.6, 1.4, 1.1, 1, 0.5, 0.4, 0.4, 0.4, 0.5, 1, 1.1, 1.4, 1.6, 18, 110],
+    high:   [110, 41, 10, 5, 3, 1.5, 1, 0.5, 0.3, 0.5, 1, 1.5, 3, 5, 10, 41, 110]
+};
+
+let currentPlinkoRisk = 'high'; // Domyślne ryzyko
 let plinkoCanvas, plinkoCtx;
 let plinkoBalls = [];
 let plinkoPins = [];
@@ -2084,7 +2085,17 @@ let plinkoEngineRunning = false;
 
 document.addEventListener("DOMContentLoaded", () => {
     const btnPlinko = document.getElementById("btn-plinko-drop");
+    const riskSelect = document.getElementById("plinko-risk-select");
+    
     if(btnPlinko) btnPlinko.addEventListener("click", onPlinkoDrop);
+    
+    // Obsługa zmiany ryzyka
+    if(riskSelect) {
+        riskSelect.addEventListener("change", (e) => {
+            currentPlinkoRisk = e.target.value;
+            updatePlinkoBuckets(); // Przerysuj dolne pola
+        });
+    }
     
     setTimeout(initPlinko, 1000); 
 });
@@ -2094,18 +2105,7 @@ function initPlinko() {
     if(!plinkoCanvas) return;
     plinkoCtx = plinkoCanvas.getContext('2d');
 
-    const bucketContainer = document.getElementById("plinko-multipliers");
-    if(bucketContainer) {
-        bucketContainer.innerHTML = "";
-        PLINKO_MULTIPLIERS.forEach((m, i) => {
-            const div = document.createElement("div");
-            div.className = `plinko-bucket ${PLINKO_COLORS[i]}`;
-            div.id = `plinko-bucket-${i}`;
-            div.innerText = m + 'x';
-            bucketContainer.appendChild(div);
-        });
-    }
-
+    // Rysujemy piny
     plinkoPins = [];
     const startX = 400; 
     const startY = 50;  
@@ -2126,10 +2126,37 @@ function initPlinko() {
         }
     }
 
+    // Rysujemy buckety po raz pierwszy
+    updatePlinkoBuckets();
+
     if(!plinkoEngineRunning) {
         plinkoEngineRunning = true;
         requestAnimationFrame(plinkoLoop);
     }
+}
+
+// Funkcja aktualizująca wygląd dolnych pól w zależności od ryzyka
+function updatePlinkoBuckets() {
+    const bucketContainer = document.getElementById("plinko-multipliers");
+    if(!bucketContainer) return;
+
+    const multipliers = PLINKO_RISK_MAP[currentPlinkoRisk];
+    bucketContainer.innerHTML = "";
+
+    multipliers.forEach((m, i) => {
+        const div = document.createElement("div");
+        
+        // Dynamiczne kolory w zależności od mnożnika
+        let colorClass = 'pb-low';
+        if(m >= 10) colorClass = 'pb-ultra';
+        else if(m >= 3) colorClass = 'pb-high';
+        else if(m >= 1) colorClass = 'pb-med';
+
+        div.className = `plinko-bucket ${colorClass}`;
+        div.id = `plinko-bucket-${i}`; // ID do animacji trafienia
+        div.innerText = m + 'x';
+        bucketContainer.appendChild(div);
+    });
 }
 
 async function onPlinkoDrop() {
@@ -2159,7 +2186,8 @@ async function onPlinkoDrop() {
             t.update(userRef, { cash: newCash, totalValue: newVal });
         });
 
-        spawnPlinkoBall(amount);
+        // Przekazujemy aktualnie wybrane ryzyko do kulki
+        spawnPlinkoBall(amount, currentPlinkoRisk);
 
     } catch (e) {
         portfolio.cash += amount;
@@ -2168,15 +2196,20 @@ async function onPlinkoDrop() {
     }
 }
 
-function spawnPlinkoBall(betAmount) {
+function spawnPlinkoBall(betAmount, riskLevel) {
     let path = [];
     let finalBucketIndex = 0;
 
+    // Generowanie ścieżki
     for(let i = 0; i < PLINKO_ROWS; i++) {
         const dir = Math.random() > 0.5 ? 1 : 0;
         path.push(dir);
         finalBucketIndex += dir;
     }
+
+    // Pobieramy zestaw mnożników dla tego konkretnego zrzutu
+    // Dzięki temu, jeśli zmienisz ryzyko w trakcie lotu, ta kulka zachowa stare mnożniki
+    const multipliersSnapshot = PLINKO_RISK_MAP[riskLevel];
 
     plinkoBalls.push({
         x: 400 + (Math.random() * 4 - 2), 
@@ -2189,13 +2222,15 @@ function spawnPlinkoBall(betAmount) {
         currentRow: 0,      
         finished: false,
         bet: betAmount,
-        bucketIndex: finalBucketIndex
+        bucketIndex: finalBucketIndex,
+        riskMultipliers: multipliersSnapshot // Zapisujemy mnożniki w obiekcie kulki
     });
 }
 
 function plinkoLoop() {
     plinkoCtx.clearRect(0, 0, plinkoCanvas.width, plinkoCanvas.height);
 
+    // Rysowanie pinów
     plinkoCtx.fillStyle = "white";
     plinkoCtx.beginPath();
     plinkoPins.forEach(p => {
@@ -2205,9 +2240,7 @@ function plinkoLoop() {
     plinkoCtx.fill();
 
     const gravity = 0.25;
-    const gapX = 40;
     const gapY = 32;
-    const startX = 400;
     const startY = 50;
 
     for (let i = plinkoBalls.length - 1; i >= 0; i--) {
@@ -2239,6 +2272,7 @@ function plinkoLoop() {
 
         b.vx *= 0.98;
 
+        // Rysowanie kulki
         plinkoCtx.beginPath();
         plinkoCtx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
         plinkoCtx.fillStyle = b.color;
@@ -2252,10 +2286,14 @@ function plinkoLoop() {
 }
 
 async function finishPlinkoBall(ball) {
-    const multiplier = PLINKO_MULTIPLIERS[ball.bucketIndex];
+    // Używamy mnożników zapisanych w kulce, a nie globalnych!
+    // To zapobiega błędom przy zmianie ryzyka w trakcie gry
+    const multiplier = ball.riskMultipliers[ball.bucketIndex];
+    
     const winAmount = ball.bet * multiplier;
     const profit = winAmount - ball.bet;
 
+    // Animacja uderzenia w bucket
     const bucketEl = document.getElementById(`plinko-bucket-${ball.bucketIndex}`);
     if(bucketEl) {
         bucketEl.classList.add("hit");
