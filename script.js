@@ -3000,3 +3000,182 @@ async function endBlackjack(result) {
         } catch(e) { console.error(e); }
     }
 }
+// ==========================================
+// === SLOTS GAME LOGIC (Jednoręki Bandyta) ===
+// ==========================================
+
+// Konfiguracja symboli i ich "wagi" (im mniejsza waga, tym rzadszy symbol)
+const SLOT_SYMBOLS = [
+    { icon: '🍒', weight: 50, pay: 10 }, // Wiśnia (Najczęstsza)
+    { icon: '🍋', weight: 40, pay: 5 },  // Cytryna (Uwaga: w paytable dałem x5, tu poprawiłem logikę)
+    { icon: '🍇', weight: 30, pay: 20 }, // Winogrono
+    { icon: '🎰', weight: 15, pay: 20 }, // BAR
+    { icon: '💎', weight: 8,  pay: 50 }, // Diament
+    { icon: '7️⃣', weight: 2,  pay: 100 } // Siedem (Jackpot)
+];
+
+// Całkowita waga (do losowania)
+const TOTAL_WEIGHT = SLOT_SYMBOLS.reduce((sum, s) => sum + s.weight, 0);
+
+let slotsSpinning = false;
+
+document.addEventListener("DOMContentLoaded", () => {
+    const btnSlots = document.getElementById("btn-slots-spin");
+    if(btnSlots) btnSlots.addEventListener("click", onSlotsSpin);
+});
+
+// Funkcja losująca symbol z uwzględnieniem rzadkości
+function getRandomSlotSymbol() {
+    let random = Math.random() * TOTAL_WEIGHT;
+    for (let symbol of SLOT_SYMBOLS) {
+        if (random < symbol.weight) {
+            return symbol.icon;
+        }
+        random -= symbol.weight;
+    }
+    return SLOT_SYMBOLS[0].icon; // Fallback
+}
+
+// Funkcja pomocnicza do pobrania mnożnika dla symbolu
+function getSymbolMultiplier(icon) {
+    const sym = SLOT_SYMBOLS.find(s => s.icon === icon);
+    return sym ? sym.pay : 0;
+}
+
+async function onSlotsSpin() {
+    if (slotsSpinning) return;
+    
+    const amountInput = document.getElementById("slots-amount");
+    const amount = parseInt(amountInput.value);
+    const statusEl = document.getElementById("slots-status");
+    const windowEl = document.querySelector(".slots-window");
+
+    // Walidacja
+    if (isNaN(amount) || amount <= 0) return showMessage("Podaj stawkę!", "error");
+    if (!currentUserId) return showMessage("Zaloguj się!", "error");
+    if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
+
+    slotsSpinning = true;
+    statusEl.textContent = "KRĘCIMY...";
+    statusEl.style.color = "var(--text-main)";
+    windowEl.classList.remove("win-animation");
+    document.querySelectorAll(".slot-reel").forEach(r => r.classList.remove("win-symbol"));
+
+    try {
+        // 1. Pobranie środków (Firebase Transaction)
+        await runTransaction(db, async (t) => {
+            const userRef = doc(db, "uzytkownicy", currentUserId);
+            const userDoc = await t.get(userRef);
+            if (userDoc.data().cash < amount) throw new Error("Brak środków!");
+            
+            const newCash = userDoc.data().cash - amount;
+            t.update(userRef, { 
+                cash: newCash, 
+                totalValue: calculateTotalValue(newCash, userDoc.data().shares) 
+            });
+        });
+
+        // Update UI natychmiastowy
+        portfolio.cash -= amount;
+        updatePortfolioUI();
+
+        // 2. Ustalenie wyniku Z GÓRY (zanim skończy się animacja)
+        // Dzięki temu mamy pewność wyniku, a animacja to tylko "show"
+        const resultReels = [
+            getRandomSlotSymbol(),
+            getRandomSlotSymbol(),
+            getRandomSlotSymbol()
+        ];
+        
+        // Czasem oszukujemy na korzyść gracza? Nie, tutaj czysta matematyka wag :)
+        
+        // 3. Animacja Kręcenia
+        const reels = [
+            document.getElementById("reel-1"),
+            document.getElementById("reel-2"),
+            document.getElementById("reel-3")
+        ];
+
+        // Dźwięk startu (jeśli masz, opcjonalnie)
+        // if(dom.audioNews) { dom.audioNews.currentTime=0; dom.audioNews.play().catch(()=>{}); }
+
+        // Rozpocznij animację "rozmycia" i szybkiej zmiany znaków
+        const spinIntervals = reels.map((reel) => {
+            reel.classList.add("blur");
+            return setInterval(() => {
+                reel.textContent = getRandomSlotSymbol();
+            }, 50); // Zmieniaj znak co 50ms
+        });
+
+        // 4. Stopniowe zatrzymywanie bębnów
+        const stopDelays = [1000, 1500, 2000]; // Opóźnienia dla bębna 1, 2 i 3
+
+        reels.forEach((reel, index) => {
+            setTimeout(() => {
+                clearInterval(spinIntervals[index]); // Zatrzymaj losowanie
+                reel.textContent = resultReels[index]; // Ustaw wynik
+                reel.classList.remove("blur"); // Usuń rozmycie
+                
+                // Efekt "tąpnięcia" przy zatrzymaniu (CSS scale)
+                reel.style.transform = "scale(1.2)";
+                setTimeout(() => reel.style.transform = "scale(1)", 150);
+                
+            }, stopDelays[index]);
+        });
+
+        // 5. Sprawdzenie wygranej po zatrzymaniu ostatniego bębna
+        setTimeout(async () => {
+            const r1 = resultReels[0];
+            const r2 = resultReels[1];
+            const r3 = resultReels[2];
+
+            let winAmount = 0;
+            let profit = -amount;
+            let isWin = false;
+
+            // Logika wygranej: 3 takie same
+            if (r1 === r2 && r2 === r3) {
+                isWin = true;
+                const multiplier = getSymbolMultiplier(r1);
+                winAmount = amount * multiplier;
+                profit = winAmount - amount;
+            }
+
+            if (isWin) {
+                statusEl.innerHTML = `JACKPOT! <span style="color:#ffd700">+${formatujWalute(winAmount)}</span>`;
+                windowEl.classList.add("win-animation");
+                reels.forEach(r => r.classList.add("win-symbol"));
+                
+                if(dom.audioKaching) { dom.audioKaching.currentTime=0; dom.audioKaching.play().catch(()=>{}); }
+
+                // Zapis wygranej do bazy
+                try {
+                    await runTransaction(db, async (t) => {
+                        const userRef = doc(db, "uzytkownicy", currentUserId);
+                        const d = (await t.get(userRef)).data();
+                        const newCash = d.cash + winAmount;
+                        const newZysk = (d.zysk || 0) + profit;
+                        t.update(userRef, { 
+                            cash: newCash, 
+                            zysk: newZysk, 
+                            totalValue: calculateTotalValue(newCash, d.shares) 
+                        });
+                    });
+                    showNotification(`Sloty: Wygrana ${formatujWalute(winAmount)}!`, 'news', 'positive');
+                } catch(e) { console.error(e); }
+
+            } else {
+                statusEl.textContent = "SPRÓBUJ PONOWNIE";
+                statusEl.style.color = "var(--text-muted)";
+            }
+
+            slotsSpinning = false;
+
+        }, 2100); // Nieco po zatrzymaniu ostatniego bębna
+
+    } catch (e) {
+        slotsSpinning = false;
+        statusEl.textContent = "BŁĄD SIECI";
+        showMessage(e.message, "error");
+    }
+}
