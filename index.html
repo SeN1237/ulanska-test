@@ -608,45 +608,60 @@
         </div>
 
         <div class="slots-machine-container">
-            <div class="slots-paytable">
-                <div class="pay-item p-777"><span>7️⃣7️⃣7️⃣</span> <strong>x100</strong></div>
-                <div class="pay-item p-diamond"><span>💎💎💎</span> <strong>x50</strong></div>
-                <div class="pay-item p-bar"><span>🎰🎰🎰</span> <strong>x20</strong></div>
-                <div class="pay-item p-cherry"><span>🍒🍒🍒</span> <strong>x10</strong></div>
-                <div class="pay-item p-lemon"><span>🍋🍋🍋</span> <strong>x5</strong></div>
-            </div>
+    <div class="slots-paytable">
+        <div class="pay-item p-777"><span>7️⃣7️⃣7️⃣</span> <strong>Jackpot</strong></div>
+        <div class="pay-item p-diamond"><span>💎💎💎</span> <strong>x50</strong></div>
+        <div class="pay-item p-bar"><span>🎰🎰🎰</span> <strong>x20</strong></div>
+        <div class="pay-item p-grape"><span>🍇🍇🍇</span> <strong>x15</strong></div>
+        <div class="pay-item p-cherry"><span>🍒🍒🍒</span> <strong>x10</strong></div>
+        <div class="pay-item p-lemon"><span>🍋🍋🍋</span> <strong>x5</strong></div>
+    </div>
+    
+    <div class="slots-info-bar" style="text-align:center; font-size: 0.8em; color: var(--text-muted); margin-bottom: 5px;">
+        Aktywne linie: <strong>5</strong> (Poziome + Skosy)
+    </div>
 
-            <div class="slots-window">
-                <div class="reel-container">
-                    <div id="reel-1" class="slot-reel">7️⃣</div>
-                </div>
-                <div class="reel-separator"></div>
-                <div class="reel-container">
-                    <div id="reel-2" class="slot-reel">7️⃣</div>
-                </div>
-                <div class="reel-separator"></div>
-                <div class="reel-container">
-                    <div id="reel-3" class="slot-reel">7️⃣</div>
-                </div>
-                
-                <div class="win-line"></div>
-            </div>
+    <div class="slots-window expanded">
+        <svg id="slots-lines-svg" class="slots-svg-layer"></svg>
 
-            <div class="slots-controls">
-                <div class="slots-message" id="slots-status">SPIN TO WIN!</div>
-                
-                <div class="input-row" style="max-width: 300px; margin: 15px auto;">
-                    <label>Stawka:</label>
-                    <input type="number" id="slots-amount" class="dark-input" value="100">
-                </div>
-
-                <button id="btn-slots-spin" class="btn-accent btn-full-width spin-button-big">
-                    ZAKRĘĆ (SPIN)
-                </button>
+        <div class="reel-container expanded">
+            <div id="reel-col-0" class="slot-column">
+                <div class="slot-cell">❓</div>
+                <div class="slot-cell">❓</div>
+                <div class="slot-cell">❓</div>
             </div>
         </div>
-    </section>
-</div>    
+        <div class="reel-separator"></div>
+        <div class="reel-container expanded">
+            <div id="reel-col-1" class="slot-column">
+                <div class="slot-cell">❓</div>
+                <div class="slot-cell">❓</div>
+                <div class="slot-cell">❓</div>
+            </div>
+        </div>
+        <div class="reel-separator"></div>
+        <div class="reel-container expanded">
+            <div id="reel-col-2" class="slot-column">
+                <div class="slot-cell">❓</div>
+                <div class="slot-cell">❓</div>
+                <div class="slot-cell">❓</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slots-controls">
+        <div class="slots-message" id="slots-status">5 LINII WYGRYWAJĄCYCH!</div>
+        
+        <div class="input-row" style="max-width: 300px; margin: 15px auto;">
+            <label>Stawka:</label>
+            <input type="number" id="slots-amount" class="dark-input" value="100">
+        </div>
+
+        <button id="btn-slots-spin" class="btn-accent btn-full-width spin-button-big">
+            ZAKRĘĆ (SPIN)
+        </button>
+    </div>
+</div> 
     
 <div id="tab-game-dice" class="game-tab-content">
     <section class="glass-panel center-content">
