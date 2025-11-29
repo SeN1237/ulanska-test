@@ -2768,3 +2768,235 @@ function revealAllMines(dimmed = false) {
         }
     });
 }
+// ==========================================
+// === BLACKJACK GAME LOGIC ===
+// ==========================================
+
+let bjDeck = [];
+let bjPlayerHand = [];
+let bjDealerHand = [];
+let bjGameActive = false;
+let bjBetAmount = 0;
+
+// Listenery (dodaj to wewnątrz DOMContentLoaded lub na końcu pliku)
+document.addEventListener("DOMContentLoaded", () => {
+    const btnDeal = document.getElementById("btn-bj-deal");
+    const btnHit = document.getElementById("btn-bj-hit");
+    const btnStand = document.getElementById("btn-bj-stand");
+
+    if(btnDeal) btnDeal.addEventListener("click", startBlackjack);
+    if(btnHit) btnHit.addEventListener("click", bjHit);
+    if(btnStand) btnStand.addEventListener("click", bjStand);
+});
+
+function createBjDeck() {
+    const suits = ['♥', '♦', '♣', '♠'];
+    const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+    let deck = [];
+    for (let s of suits) {
+        for (let r of ranks) {
+            let val = parseInt(r);
+            if (['J', 'Q', 'K'].includes(r)) val = 10;
+            if (r === 'A') val = 11;
+            deck.push({ rank: r, suit: s, value: val, color: (s === '♥' || s === '♦') ? 'red' : 'black' });
+        }
+    }
+    // Tasowanie
+    for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    return deck;
+}
+
+async function startBlackjack() {
+    if (bjGameActive) return;
+    const amountInput = document.getElementById("bj-amount");
+    const amount = parseInt(amountInput.value);
+
+    if (isNaN(amount) || amount <= 0) return showMessage("Podaj stawkę!", "error");
+    if (!currentUserId) return showMessage("Zaloguj się!", "error");
+    if (amount > portfolio.cash) return showMessage("Brak środków!", "error");
+
+    try {
+        // Pobierz kasę
+        await runTransaction(db, async (t) => {
+            const userRef = doc(db, "uzytkownicy", currentUserId);
+            const userDoc = await t.get(userRef);
+            if (userDoc.data().cash < amount) throw new Error("Brak środków!");
+            const newCash = userDoc.data().cash - amount;
+            t.update(userRef, { cash: newCash, totalValue: calculateTotalValue(newCash, userDoc.data().shares) });
+        });
+        
+        // Setup gry
+        portfolio.cash -= amount; // UI update
+        updatePortfolioUI();
+        
+        bjBetAmount = amount;
+        bjGameActive = true;
+        bjDeck = createBjDeck();
+        bjPlayerHand = [bjDeck.pop(), bjDeck.pop()];
+        bjDealerHand = [bjDeck.pop(), bjDeck.pop()];
+
+        updateBjUI(false); // false = nie pokazuj jeszcze drugiej karty krupiera
+        
+        // Sprawdź Blackjacka od razu (21 na start)
+        const pScore = getBjScore(bjPlayerHand);
+        if (pScore === 21) {
+            bjStand(); // Auto stand przy blackjacku
+        } else {
+            // Pokaż kontrolki
+            document.getElementById("bj-betting-controls").classList.add("hidden");
+            document.getElementById("bj-action-controls").classList.remove("hidden");
+            document.getElementById("bj-message").textContent = "Twój ruch...";
+        }
+
+    } catch (e) {
+        showMessage(e.message, "error");
+    }
+}
+
+function bjHit() {
+    if (!bjGameActive) return;
+    bjPlayerHand.push(bjDeck.pop());
+    updateBjUI(false);
+    
+    const score = getBjScore(bjPlayerHand);
+    if (score > 21) {
+        endBlackjack(false); // Fura (Bust)
+    }
+}
+
+async function bjStand() {
+    if (!bjGameActive) return;
+    
+    // Logika krupiera (dobiera do 17)
+    let dScore = getBjScore(bjDealerHand);
+    while (dScore < 17) {
+        bjDealerHand.push(bjDeck.pop());
+        dScore = getBjScore(bjDealerHand);
+    }
+    
+    updateBjUI(true); // Odkryj karty
+    
+    const pScore = getBjScore(bjPlayerHand);
+    
+    let win = false;
+    let push = false; // Remis
+
+    if (dScore > 21) {
+        win = true; // Krupier fura
+    } else if (pScore > dScore) {
+        win = true;
+    } else if (pScore === dScore) {
+        push = true;
+    }
+
+    if (push) {
+        await endBlackjack(null); // null = remis
+    } else {
+        await endBlackjack(win);
+    }
+}
+
+function getBjScore(hand) {
+    let score = 0;
+    let aces = 0;
+    for (let card of hand) {
+        score += card.value;
+        if (card.rank === 'A') aces++;
+    }
+    while (score > 21 && aces > 0) {
+        score -= 10;
+        aces--;
+    }
+    return score;
+}
+
+function updateBjUI(revealDealer) {
+    const dContainer = document.getElementById("bj-dealer-cards");
+    const pContainer = document.getElementById("bj-player-cards");
+    const dScoreEl = document.getElementById("bj-dealer-score");
+    const pScoreEl = document.getElementById("bj-player-score");
+
+    // Render Gracza
+    pContainer.innerHTML = "";
+    bjPlayerHand.forEach(c => pContainer.appendChild(createBjCardEl(c)));
+    pScoreEl.textContent = `(${getBjScore(bjPlayerHand)})`;
+
+    // Render Krupiera
+    dContainer.innerHTML = "";
+    bjDealerHand.forEach((c, index) => {
+        if (index === 1 && !revealDealer) {
+            // Zakryta karta
+            const div = document.createElement("div");
+            div.className = "bj-card-wrap";
+            div.innerHTML = `<div class="bj-card-inner back"></div>`;
+            dContainer.appendChild(div);
+        } else {
+            dContainer.appendChild(createBjCardEl(c));
+        }
+    });
+
+    if (revealDealer) {
+        dScoreEl.textContent = `(${getBjScore(bjDealerHand)})`;
+    } else {
+        dScoreEl.textContent = "(?)";
+    }
+}
+
+function createBjCardEl(card) {
+    const div = document.createElement("div");
+    div.className = "bj-card-wrap";
+    div.innerHTML = `
+        <div class="bj-card-inner ${card.color}">
+            <div style="font-size:1.2em">${card.rank}</div>
+            <div style="font-size:1.5em">${card.suit}</div>
+        </div>
+    `;
+    return div;
+}
+
+async function endBlackjack(result) {
+    bjGameActive = false;
+    const msg = document.getElementById("bj-message");
+    
+    let payout = 0;
+    let profit = 0;
+
+    if (result === true) {
+        // Wygrana (2x) - Blackjack 3:2 tu pomijamy dla uproszczenia, dajemy 2x
+        payout = bjBetAmount * 2;
+        profit = bjBetAmount;
+        msg.textContent = `WYGRANA! +${formatujWalute(profit)}`;
+        msg.style.color = "var(--green)";
+        if(dom.audioKaching) dom.audioKaching.play().catch(()=>{});
+    } else if (result === null) {
+        // Remis (Zwrot)
+        payout = bjBetAmount;
+        profit = 0;
+        msg.textContent = "REMIS (ZWROT)";
+        msg.style.color = "var(--text-muted)";
+    } else {
+        // Przegrana
+        msg.textContent = "PRZEGRANA...";
+        msg.style.color = "var(--red)";
+        if(dom.audioError) dom.audioError.play().catch(()=>{});
+        profit = -bjBetAmount;
+    }
+
+    document.getElementById("bj-action-controls").classList.add("hidden");
+    document.getElementById("bj-betting-controls").classList.remove("hidden");
+
+    if (payout > 0) {
+        try {
+            await runTransaction(db, async (t) => {
+                const userRef = doc(db, "uzytkownicy", currentUserId);
+                const d = (await t.get(userRef)).data();
+                const newCash = d.cash + payout;
+                const newZysk = (d.zysk || 0) + profit;
+                t.update(userRef, { cash: newCash, zysk: newZysk, totalValue: calculateTotalValue(newCash, d.shares) });
+            });
+        } catch(e) { console.error(e); }
+    }
+}
