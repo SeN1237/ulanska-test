@@ -267,6 +267,7 @@
         <button class="game-nav-btn" data-game-tab="poker"><i class="fa-solid fa-diamond"></i> Poker</button>
         <button class="game-nav-btn" data-game-tab="radio"><i class="fa-solid fa-music"></i> Radio</button>
         <button class="game-nav-btn" data-game-tab="mines"><i class="fa-solid fa-bomb"></i> Mines</button>
+        <button class="game-nav-btn" data-game-tab="blackjack"><i class="fa-solid fa-playing-card"></i> Blackjack</button>
     </div>
 
     <div class="games-content-container">
@@ -553,6 +554,44 @@
             <div class="mines-grid-container">
                 <div id="mines-grid" class="mines-grid">
                     </div>
+            </div>
+        </div>
+    </section>
+</div>
+<div id="tab-game-blackjack" class="game-tab-content">
+    <section id="blackjack-panel" class="glass-panel center-content">
+        <div class="panel-head">
+            <h2><i class="fa-solid fa-diamond"></i> Blackjack (21)</h2>
+        </div>
+        
+        <div class="blackjack-table">
+            <div class="bj-row">
+                <div class="bj-label">KRUPIER <span id="bj-dealer-score" style="color:var(--text-muted)">(0)</span></div>
+                <div id="bj-dealer-cards" class="bj-cards-container"></div>
+            </div>
+
+            <hr style="border-color: rgba(255,255,255,0.1); width: 100%; margin: 20px 0;">
+
+            <div class="bj-row">
+                <div class="bj-label">TY <span id="bj-player-score" style="color:var(--accent-color)">(0)</span></div>
+                <div id="bj-player-cards" class="bj-cards-container"></div>
+            </div>
+
+            <div class="bj-controls mt-10">
+                <p id="bj-message" style="font-weight: bold; font-size: 1.2rem; min-height: 1.5em;">Postaw zakład</p>
+                
+                <div id="bj-betting-controls">
+                    <div class="input-row">
+                        <label>Stawka:</label>
+                        <input type="number" id="bj-amount" class="dark-input" value="100">
+                    </div>
+                    <button id="btn-bj-deal" class="btn-accent btn-full-width mt-10">ROZDAJ</button>
+                </div>
+
+                <div id="bj-action-controls" class="hidden" style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button id="btn-bj-hit" class="btn-buy" style="flex:1;">DOBIERZ (HIT)</button>
+                    <button id="btn-bj-stand" class="btn-sell" style="flex:1;">PAS (STAND)</button>
+                </div>
             </div>
         </div>
     </section>
