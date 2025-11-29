@@ -260,18 +260,19 @@
 
             <div class="games-nav-scroll glass-panel" style="padding: 10px; display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; margin-bottom: 20px;">
                 <button class="game-nav-btn active" data-game-tab="betting"><i class="fa-solid fa-futbol"></i> Bukmacher</button>
-                <button class="game-nav-btn" data-game-tab="casino"><i class="fa-solid fa-dharmachakra"></i> Ruletka</button>
-                <button class="game-nav-btn" data-game-tab="crash"><i class="fa-solid fa-rocket"></i> Crash</button>
+                <button class="game-nav-btn" data-game-tab="race"><i class="fa-solid fa-flag-checkered"></i> Gonitwa (Multi)</button>
                 <button class="game-nav-btn" data-game-tab="pvp"><i class="fa-solid fa-khanda"></i> PvP</button>
-                <button class="game-nav-btn" data-game-tab="plinko"><i class="fa-solid fa-circle-nodes"></i> Plinko</button>
+                <button class="game-nav-btn" data-game-tab="casino"><i class="fa-solid fa-dharmachakra"></i> Ruletka</button>
+                <button class="game-nav-btn" data-game-tab="dice"><i class="fa-solid fa-cube"></i> Dice</button>
                 <button class="game-nav-btn" data-game-tab="poker"><i class="fa-solid fa-diamond"></i> Poker</button>
-                <button class="game-nav-btn" data-game-tab="radio"><i class="fa-solid fa-music"></i> Radio</button>
                 <button class="game-nav-btn" data-game-tab="mines"><i class="fa-solid fa-bomb"></i> Mines</button>
+                <button class="game-nav-btn" data-game-tab="keno"><i class="fa-solid fa-table-cells"></i> Keno</button>
+                <button class="game-nav-btn" data-game-tab="plinko"><i class="fa-solid fa-circle-nodes"></i> Plinko</button>
                 <button class="game-nav-btn" data-game-tab="blackjack"><i class="fa-solid fa-cards"></i> Blackjack</button>
                 <button class="game-nav-btn" data-game-tab="slots"><i class="fa-solid fa-gem"></i> Sloty</button>
-                <button class="game-nav-btn" data-game-tab="dice"><i class="fa-solid fa-cube"></i> Dice</button>
-                <button class="game-nav-btn" data-game-tab="keno"><i class="fa-solid fa-table-cells"></i> Keno</button>
                 <button class="game-nav-btn" data-game-tab="cases"><i class="fa-solid fa-box-open"></i> Skrzynki</button>
+                <button class="game-nav-btn" data-game-tab="crash"><i class="fa-solid fa-rocket"></i> Crash</button>
+                <button class="game-nav-btn" data-game-tab="radio"><i class="fa-solid fa-music"></i> Radio</button>
             </div>
 
             <div class="games-content-container">
@@ -713,6 +714,40 @@
                     </section>
                 </div>
 
+                <div id="tab-game-race" class="game-tab-content">
+    <section id="race-panel" class="glass-panel">
+        <div class="panel-head">
+            <h2><i class="fa-solid fa-flag-checkered"></i> Wielka Gonitwa (Max 8)</h2>
+        </div>
+
+        <div id="race-lobby-view">
+            <div class="race-controls">
+                <div class="input-row" style="max-width: 400px; margin: 0 auto 20px auto;">
+                    <input type="number" id="race-create-amount" class="dark-input" placeholder="Wpisowe (np. 1000)" min="100">
+                    <button id="btn-race-create" class="btn-accent">STWÓRZ POKÓJ</button>
+                </div>
+            </div>
+            <h3>Aktywne Wyścigi</h3>
+            <div id="race-list" class="race-list-container">
+                <p style="text-align:center; color:var(--text-muted)">Brak aktywnych wyścigów...</p>
+            </div>
+        </div>
+
+        <div id="race-track-view" class="hidden">
+            <div class="race-header-info">
+                <button id="btn-race-leave" class="btn-sell"><i class="fa-solid fa-arrow-left"></i> Wyjdź</button>
+                <div class="race-pot-info">Pula: <strong id="race-pot-display" style="color:var(--green)">0.00 zł</strong></div>
+                <button id="btn-race-start" class="btn-green hidden">START!</button>
+            </div>
+            
+            <div class="race-tracks-container" id="race-tracks-container">
+                </div>
+            
+            <div id="race-status-message" class="race-status">Oczekiwanie na graczy...</div>
+        </div>
+    </section>
+</div>
+                
                 <div id="tab-game-cases" class="game-tab-content">
                     <section class="glass-panel center-content">
                         <h2><i class="fa-solid fa-box-open"></i> Case Opening</h2>
