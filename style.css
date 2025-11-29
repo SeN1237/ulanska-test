@@ -2227,3 +2227,105 @@ input:focus, select:focus { border-color: var(--accent-color); }
     .keno-board { grid-template-columns: repeat(5, 1fr); }
     .keno-btn { width: 40px; height: 40px; }
 }
+/* --- RACE GAME STYLES --- */
+.race-list-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.race-lobby-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 15px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: transform 0.2s;
+}
+
+.race-lobby-card:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+.race-header-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 10px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+}
+
+.race-tracks-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: #1a1a1a; /* Kolor ziemi/toru */
+    padding: 20px;
+    border-radius: 10px;
+    border: 4px solid #333;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Linia mety */
+.race-tracks-container::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    right: 50px;
+    width: 10px;
+    background-image: linear-gradient(45deg, #fff 25%, #000 25%, #000 50%, #fff 50%, #fff 75%, #000 75%, #000 100%);
+    background-size: 20px 20px;
+    z-index: 0;
+    opacity: 0.5;
+}
+
+.race-lane {
+    position: relative;
+    height: 50px;
+    border-bottom: 1px dashed rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+}
+
+.race-snail {
+    font-size: 2rem;
+    position: absolute;
+    left: 0;
+    transition: left 0.5s linear; /* Płynny ruch */
+    z-index: 10;
+    filter: drop-shadow(2px 2px 0px rgba(0,0,0,0.5));
+}
+
+.race-snail.winner {
+    transform: scale(1.5);
+    z-index: 20;
+    filter: drop-shadow(0 0 10px gold);
+}
+
+.snail-name {
+    position: absolute;
+    left: 0;
+    top: -15px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    color: #ccc;
+    background: rgba(0,0,0,0.5);
+    padding: 2px 5px;
+    border-radius: 4px;
+}
+
+.race-status {
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-top: 20px;
+    text-transform: uppercase;
+    color: var(--accent-color);
+}
