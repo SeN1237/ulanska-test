@@ -269,6 +269,9 @@
         <button class="game-nav-btn" data-game-tab="mines"><i class="fa-solid fa-bomb"></i> Mines</button>
         <button class="game-nav-btn" data-game-tab="blackjack"><i class="fa-solid fa-cards"></i> Blackjack</button>
         <button class="game-nav-btn" data-game-tab="slots"><i class="fa-solid fa-gem"></i> Sloty</button>
+        <button class="game-nav-btn" data-game-tab="dice"><i class="fa-solid fa-cube"></i> Dice</button>
+        <button class="game-nav-btn" data-game-tab="keno"><i class="fa-solid fa-table-cells"></i> Keno</button>
+        <button class="game-nav-btn" data-game-tab="cases"><i class="fa-solid fa-box-open"></i> Skrzynki</button>
     </div>
 
     <div class="games-content-container">
@@ -644,6 +647,82 @@
         </div>
     </section>
 </div>    
+    
+<div id="tab-game-dice" class="game-tab-content">
+    <section class="glass-panel center-content">
+        <h2><i class="fa-solid fa-cube"></i> Dice (Suwak)</h2>
+        <div class="dice-wrapper">
+            <div class="dice-result-display">
+                <span id="dice-result-val">50.00</span>
+            </div>
+            <div class="dice-slider-container">
+                <input type="range" id="dice-slider" min="2" max="98" value="50" class="dice-range">
+                <div class="dice-labels">
+                    <span>0</span>
+                    <span>25</span>
+                    <span>50</span>
+                    <span>75</span>
+                    <span>100</span>
+                </div>
+            </div>
+            <div class="dice-stats-row">
+                <div class="stat-box">Szansa: <strong id="dice-chance">50%</strong></div>
+                <div class="stat-box">Mnożnik: <strong id="dice-multiplier">1.96x</strong></div>
+            </div>
+            <div class="input-row mt-10" style="max-width:300px; margin: 10px auto;">
+                <input type="number" id="dice-amount" class="dark-input" value="100" placeholder="Stawka">
+            </div>
+            <button id="btn-dice-roll" class="btn-accent btn-full-width">RZUĆ (ROLL UNDER)</button>
+        </div>
+    </section>
+</div>
+
+<div id="tab-game-keno" class="game-tab-content">
+    <section class="glass-panel center-content">
+        <h2><i class="fa-solid fa-table-cells"></i> Keno (Klasyk)</h2>
+        <p style="font-size:0.9em; color:var(--text-muted)">Wybierz do 10 liczb. Trafienie 10/10 = Jackpot!</p>
+        
+        <div class="keno-wrapper">
+            <div id="keno-board" class="keno-board">
+                </div>
+            <div class="keno-sidebar">
+                <div class="keno-paytable" id="keno-paytable">
+                    </div>
+                <div class="input-row mt-10">
+                    <input type="number" id="keno-amount" class="dark-input" value="100">
+                </div>
+                <button id="btn-keno-play" class="btn-accent btn-full-width mt-10">GRAJ</button>
+                <button id="btn-keno-clear" class="btn-sell btn-full-width mt-5">WYCZYŚĆ</button>
+            </div>
+        </div>
+    </section>
+</div>
+
+<div id="tab-game-cases" class="game-tab-content">
+    <section class="glass-panel center-content">
+        <h2><i class="fa-solid fa-box-open"></i> Case Opening</h2>
+        
+        <div class="case-window">
+            <div class="case-marker"></div>
+            <div id="case-strip" class="case-strip">
+                </div>
+        </div>
+
+        <div class="case-controls mt-10">
+            <h3 id="case-win-label" style="min-height: 1.2em; color: var(--accent-color);">Otwórz skrzynkę!</h3>
+            <div class="input-row" style="max-width:300px; margin: 10px auto;">
+                <label>Koszt skrzynki:</label>
+                <select id="case-type-select" class="dark-input">
+                    <option value="100">Brązowa (100 zł)</option>
+                    <option value="500">Srebrna (500 zł)</option>
+                    <option value="2000">Złota (2 000 zł)</option>
+                    <option value="10000">Diamentowa (10 000 zł)</option>
+                </select>
+            </div>
+            <button id="btn-case-open" class="btn-accent btn-full-width">OTWÓRZ</button>
+        </div>
+    </section>
+</div>
     
         <div id="view-info" class="view-section">
              <div class="info-grid">
